@@ -401,9 +401,8 @@
     .main-content {
       margin-left: 256px;
       flex: 1;
-      padding: 32px 40px;
-      max-width: 1280px;
-      margin-right: auto;
+      padding: 20px 24px;
+      max-width: 100%;
       transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
@@ -1033,26 +1032,6 @@
           <i data-lucide="log-in"></i>
           <span class="sidebar-item-text">Join Session</span>
         </a>
-
-        <div class="sidebar-label">Discover</div>
-        <a href="#" class="sidebar-item">
-          <i data-lucide="shopping-bag"></i>
-          <span class="sidebar-item-text">Marketplace</span>
-        </a>
-        <a href="#" class="sidebar-item">
-          <i data-lucide="database"></i>
-          <span class="sidebar-item-text">Question Bank</span>
-        </a>
-
-        <div class="sidebar-label">Community</div>
-        <a href="#" class="sidebar-item">
-          <i data-lucide="users"></i>
-          <span class="sidebar-item-text">Organizations</span>
-        </a>
-        <a href="#" class="sidebar-item">
-          <i data-lucide="trophy"></i>
-          <span class="sidebar-item-text">Gamification</span>
-        </a>
       </div>
 
       <div class="sidebar-menu">
@@ -1132,19 +1111,19 @@
 
         <div class="stat-card">
           <div class="stat-card-header">
-            <span>Total XP</span>
+            <span>Avg. Score</span>
             <div class="stat-icon-wrapper">
-              <i data-lucide="trophy" style="width: 18px; height: 18px;"></i>
+              <i data-lucide="award" style="width: 18px; height: 18px;"></i>
             </div>
           </div>
           <div class="stat-value" id="stat-xp">0</div>
           <div class="xp-progress-container">
             <div class="xp-bar-track">
-              <div class="xp-bar-fill"></div>
+              <div class="xp-bar-fill" style="width: 86%;"></div>
             </div>
             <div class="xp-details">
-              <span>Level 5</span>
-              <span>2,450 / 3,000 XP</span>
+              <span>Overall Average</span>
+              <span>86% (Goal: 90%)</span>
             </div>
           </div>
         </div>
@@ -1275,74 +1254,48 @@
           </div>
         </div>
 
-        <!-- RIGHT PANELS (HEATMAP & NOTIFICATIONS) -->
-        <div class="dashboard-right">
-          <!-- HEATMAP -->
-          <div class="panel">
-            <div class="panel-header">
-              <h2 class="panel-title">
-                <i data-lucide="calendar" style="color: var(--primary-500)"></i>
-                Activity Calendar
-              </h2>
-            </div>
-            
-            <div class="heatmap-grid" id="heatmap-grid">
-              <!-- Cells generated dynamically by JS -->
-            </div>
-            <div class="heatmap-legend">
-              <span>Less</span>
-              <div class="legend-box" style="background-color: var(--gray-100)"></div>
-              <div class="legend-box level-1"></div>
-              <div class="legend-box level-2"></div>
-              <div class="legend-box level-3"></div>
-              <div class="legend-box level-4"></div>
-              <span>More</span>
-            </div>
-          </div>
-
           <!-- NOTIFICATIONS -->
           <div class="panel">
             <div class="panel-header">
               <h2 class="panel-title">
                 <i data-lucide="bell" style="color: var(--primary-500)"></i>
-                Notifications
+                Recent Notifications
               </h2>
               <a href="#" class="panel-link" id="mark-read-btn">Mark All Read</a>
             </div>
 
             <div class="notification-list">
               <div class="notification-item unread">
-                <div class="notification-icon notif-achievement">
-                  <i data-lucide="award" style="width: 16px; height: 16px;"></i>
+                <div class="notification-icon notif-member" style="background-color: var(--primary-50); color: var(--primary-500);">
+                  <i data-lucide="file-text" style="width: 16px; height: 16px;"></i>
                 </div>
                 <div class="notification-content">
-                  <p class="notification-text">You earned the "Quiz Creator" badge!</p>
+                  <p class="notification-text">Draft quiz "React 101" auto-saved successfully</p>
+                  <span class="notification-time">10 mins ago</span>
+                </div>
+              </div>
+
+              <div class="notification-item unread">
+                <div class="notification-icon notif-achievement" style="background-color: #ECFDF5; color: var(--teal-500);">
+                  <i data-lucide="calendar" style="width: 16px; height: 16px;"></i>
+                </div>
+                <div class="notification-content">
+                  <p class="notification-text">Upcoming session scheduled for today at 3:00 PM</p>
                   <span class="notification-time">2 hours ago</span>
                 </div>
               </div>
 
-              <div class="notification-item unread">
-                <div class="notification-icon notif-member">
-                  <i data-lucide="users" style="width: 16px; height: 16px;"></i>
+              <div class="notification-item">
+                <div class="notification-icon notif-marketplace" style="background-color: #FFFBEB; color: var(--amber-500);">
+                  <i data-lucide="shield" style="width: 16px; height: 16px;"></i>
                 </div>
                 <div class="notification-content">
-                  <p class="notification-text">3 new members joined Tech Academy</p>
-                  <span class="notification-time">5 hours ago</span>
-                </div>
-              </div>
-
-              <div class="notification-item unread">
-                <div class="notification-icon notif-marketplace">
-                  <i data-lucide="shopping-bag" style="width: 16px; height: 16px;"></i>
-                </div>
-                <div class="notification-content">
-                  <p class="notification-text">Your quiz "CSS Mastery" was cloned 4 times</p>
-                  <span class="notification-time">1 day ago</span>
+                  <p class="notification-text">Your login session preferences were updated</p>
+                  <span class="notification-time">Yesterday</span>
                 </div>
               </div>
             </div>
           </div>
-        </div>
       </div>
     </main>
   </div>
@@ -1397,29 +1350,31 @@
         animateValue(document.getElementById("stat-quizzes"), 0, 12, 1000);
         animateValue(document.getElementById("stat-sessions"), 0, 45, 1000);
         animateValue(document.getElementById("stat-active"), 0, 8, 1000);
-        animateValue(document.getElementById("stat-xp"), 0, 2450, 1000);
+        animateValue(document.getElementById("stat-xp"), 0, 86, 1000);
       }, 200);
     });
 
     // Generate Dynamic Heatmap Grid Cells
     const heatmapGrid = document.getElementById('heatmap-grid');
-    const cellCount = 96; // 24 columns x 4 rows
-    for (let i = 0; i < cellCount; i++) {
-      const cell = document.createElement('div');
-      cell.classList.add('heatmap-cell');
-      
-      // Randomly apply intensity level levels 0 to 4
-      const rand = Math.random();
-      if (rand > 0.85) {
-        cell.classList.add('level-4');
-      } else if (rand > 0.7) {
-        cell.classList.add('level-3');
-      } else if (rand > 0.5) {
-        cell.classList.add('level-2');
-      } else if (rand > 0.3) {
-        cell.classList.add('level-1');
+    if (heatmapGrid) {
+      const cellCount = 96; // 24 columns x 4 rows
+      for (let i = 0; i < cellCount; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('heatmap-cell');
+        
+        // Randomly apply intensity level levels 0 to 4
+        const rand = Math.random();
+        if (rand > 0.85) {
+          cell.classList.add('level-4');
+        } else if (rand > 0.7) {
+          cell.classList.add('level-3');
+        } else if (rand > 0.5) {
+          cell.classList.add('level-2');
+        } else if (rand > 0.3) {
+          cell.classList.add('level-1');
+        }
+        heatmapGrid.appendChild(cell);
       }
-      heatmapGrid.appendChild(cell);
     }
 
     // Toast Notification Emulator
