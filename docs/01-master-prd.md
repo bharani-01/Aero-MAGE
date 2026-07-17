@@ -1091,7 +1091,7 @@ mindmap
 ```mermaid
 sequenceDiagram
     actor Host
-    actor Participant
+    actor Participants
     participant Platform
     participant WebSocket
 
@@ -1100,27 +1100,27 @@ sequenceDiagram
     Platform-->>Host: Generate room code + QR
     Host->>Host: Share room code with class
 
-    Participant->>Platform: Enter room code
+    Participants->>Platform: Enter room code
     Platform->>WebSocket: Join lobby room
     WebSocket-->>Host: Participant joined (name, count)
-    WebSocket-->>Participant: Lobby state (waiting)
+    WebSocket-->>Participants: Lobby state (waiting)
 
     Host->>WebSocket: Start quiz
-    WebSocket-->>Participant: Countdown (3..2..1)
-    WebSocket-->>Participant: Question #1 delivered
+    WebSocket-->>Participants: Countdown (3..2..1)
+    WebSocket-->>Participants: Question #1 delivered
 
     loop For each question
-        Participant->>WebSocket: Submit answer
+        Participants->>WebSocket: Submit answer
         WebSocket-->>Host: Answer statistics update
         Note over WebSocket: Timer expires or all answered
-        WebSocket-->>Participant: Correct answer + explanation
-        WebSocket-->>Participant: Leaderboard update
-        WebSocket-->>Participant: Next question
+        WebSocket-->>Participants: Correct answer + explanation
+        WebSocket-->>Participants: Leaderboard update
+        WebSocket-->>Participants: Next question
     end
 
     WebSocket-->>Host: Session summary
-    WebSocket-->>Participant: Final results + rank
-    Platform-->>Participant: Certificate (if configured)
+    WebSocket-->>Participants: Final results + rank
+    Platform-->>Participants: Certificate (if configured)
 ```
 
 **Preconditions:**

@@ -417,19 +417,473 @@
 
     /* HEADER SECTION */
     .page-header {
-      margin-bottom: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 32px;
+      padding: 40px 24px 32px 24px;
+      border-radius: var(--radius-lg);
+      background: radial-gradient(circle at top, rgba(236, 72, 153, 0.15) 0%, rgba(99, 102, 241, 0.02) 60%, transparent 100%);
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(236, 72, 153, 0.06);
+    }
+
+    .header-text-container {
+      margin-bottom: 8px;
     }
 
     .greeting-title {
-      font-size: 28px;
-      font-weight: 800;
-      color: var(--gray-900);
-      margin-bottom: 4px;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--gray-800);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
     }
 
     .header-sub {
       color: var(--gray-500);
       font-size: 14px;
+    }
+
+    /* Action Tabs Grid */
+    .action-tabs-container {
+      display: flex;
+      gap: 16px;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      width: 100%;
+      max-width: 600px;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    .action-tab {
+      background-color: var(--white);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      flex: 1;
+      max-width: 180px;
+      min-height: 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+    }
+
+    .action-tab:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-md);
+      border-color: rgba(236, 72, 153, 0.15);
+    }
+
+    .action-tab.active {
+      border-color: rgba(236, 72, 153, 0.25);
+      box-shadow: 0 12px 24px rgba(236, 72, 153, 0.08);
+    }
+
+    /* Active Arrow Pointer indicator pointing down */
+    .action-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 8px 8px 0;
+      border-style: solid;
+      border-color: var(--white) transparent;
+      display: block;
+      width: 0;
+      z-index: 12;
+    }
+
+    .action-tab.active::before {
+      content: '';
+      position: absolute;
+      bottom: -9px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 9px 9px 0;
+      border-style: solid;
+      border-color: rgba(236, 72, 153, 0.2) transparent;
+      display: block;
+      width: 0;
+      z-index: 11;
+    }
+
+    .action-tab-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gray-500);
+      background-color: var(--gray-50);
+      transition: all 0.2s;
+    }
+
+    .action-tab.active .action-tab-icon {
+      color: #D81B60;
+      background-color: rgba(236, 72, 153, 0.08);
+    }
+
+    .action-tab-title {
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--gray-500);
+      transition: color 0.2s;
+    }
+
+    .action-tab.active .action-tab-title {
+      color: #D81B60;
+    }
+
+    .action-tab-desc {
+      font-size: 10px;
+      color: var(--gray-400);
+    }
+
+    /* Pill Search Bar */
+    .pill-search-container {
+      width: 100%;
+      max-width: 600px;
+      background-color: var(--white);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: var(--radius-full);
+      padding: 4px 4px 4px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: var(--shadow-sm);
+      margin-top: 16px;
+      margin-bottom: 12px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      z-index: 10;
+    }
+
+    .pill-search-container:focus-within {
+      border-color: #D81B60;
+      box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1);
+    }
+
+    .pill-search-input {
+      border: none;
+      background: none;
+      flex: 1;
+      height: 40px;
+      font-size: 14px;
+      color: var(--gray-800);
+      outline: none;
+      font-family: var(--font-sans);
+    }
+
+    .pill-search-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-full);
+      background-color: #D81B60;
+      color: var(--white);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.2s;
+    }
+
+    .pill-search-btn:hover {
+      background-color: #C2185B;
+    }
+
+    /* Browse Resources Section Header */
+    .browse-section-header {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--gray-600);
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .browse-select-underline {
+      color: var(--gray-800);
+      font-weight: 700;
+      border-bottom: 2px solid #D81B60;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding-bottom: 2px;
+    }
+
+    /* TOPIC CARDS */
+    .topics-section {
+      margin-top: 32px;
+    }
+    
+    .topics-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .topic-card {
+      background-color: var(--white);
+      border: 1px solid rgba(99, 102, 241, 0.06);
+      border-radius: var(--radius-lg);
+      display: grid;
+      grid-template-columns: 1fr 2.5fr;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s, border-color 0.3s;
+    }
+
+    .topic-card:hover {
+      transform: translateY(-3px) scale(1.005);
+      box-shadow: var(--shadow-md);
+      border-color: rgba(236, 72, 153, 0.15);
+    }
+
+    /* Dog-ear fold */
+    .topic-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, var(--gray-50) 50%, var(--gray-200) 50%);
+      border-bottom-left-radius: var(--radius-sm);
+      box-shadow: -1px 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .topic-card-left {
+      padding: 24px;
+      border-right: 1px dashed rgba(0, 0, 0, 0.06);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      background-color: #FAFBFC;
+      background-image: radial-gradient(var(--gray-200) 1px, transparent 1px);
+      background-size: 12px 12px;
+      position: relative;
+    }
+
+    .topic-card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--primary-50);
+      color: var(--primary-500);
+      margin-bottom: 12px;
+    }
+
+    .topic-card:nth-child(2) .topic-card-icon {
+      background-color: #FDF2F8;
+      color: var(--accent-500);
+    }
+
+    .topic-card:nth-child(3) .topic-card-icon {
+      background-color: #ECFDF5;
+      color: var(--teal-500);
+    }
+
+    .topic-card-left-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--gray-800);
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+
+    .topic-card-left-count {
+      font-size: 12px;
+      color: var(--gray-500);
+      font-weight: 500;
+    }
+
+    .topic-card-right {
+      padding: 24px 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .topic-list-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--gray-600);
+    }
+
+    .topic-list-item-num {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--gray-400);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      min-width: 50px;
+    }
+
+    .topic-list-item-name {
+      font-weight: 500;
+      color: var(--gray-700);
+    }
+
+    .topic-card-see-all {
+      font-size: 13px;
+      font-weight: 600;
+      color: #D81B60;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+      transition: color 0.2s;
+    }
+
+    .topic-card-see-all:hover {
+      color: #C2185B;
+    }
+
+    /* Mascot Animations */
+    .animated-mascot {
+      width: 72px;
+      height: 72px;
+      flex-shrink: 0;
+      animation: mascotFloat 3s ease-in-out infinite;
+    }
+
+    @keyframes mascotFloat {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
+    }
+
+    .mascot-eye {
+      transform-origin: 50% 50%;
+      animation: eyeBlink 4s ease-in-out infinite;
+    }
+
+    @keyframes eyeBlink {
+      0%, 90%, 100% { transform: scaleY(1); }
+      95% { transform: scaleY(0.1); }
+    }
+
+    .mascot-sparkle {
+      transform-origin: 50% 50%;
+      animation: sparkleGlow 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes sparkleGlow {
+      0% { opacity: 0.3; transform: scale(0.8); }
+      100% { opacity: 1; transform: scale(1.2); }
+    }
+
+    /* Sidebar upgrades & footer */
+    .sidebar-footer {
+      padding: 12px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      border-top: 1px solid rgba(99, 102, 241, 0.06);
+    }
+
+    .upgrade-banner {
+      background: linear-gradient(135deg, #FFF9E6, #FFF3CD);
+      border: 1px solid #FFEBAA;
+      padding: 12px;
+      border-radius: var(--radius-md);
+      text-align: center;
+    }
+
+    .btn-upgrade {
+      width: 100%;
+      background: linear-gradient(135deg, #F59E0B, #D97706);
+      color: var(--white);
+      font-size: 12px;
+      font-weight: 700;
+      border: none;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 6px rgba(245, 158, 11, 0.2);
+    }
+
+    .btn-upgrade:hover {
+      filter: brightness(1.05);
+    }
+
+    .user-profile-widget {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-profile-details {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .user-profile-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gray-800);
+    }
+
+    .user-profile-tier {
+      font-size: 11px;
+      color: var(--gray-400);
+    }
+
+    /* Floating Help button */
+    .floating-help-btn {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-full);
+      background-color: #D81B60;
+      color: var(--white);
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 1000;
+      border: none;
+      transition: all 0.2s;
+    }
+
+    .floating-help-btn:hover {
+      transform: scale(1.08);
+      background-color: #C2185B;
+    }
+
+    @keyframes statusPulse {
+      0%, 100% { opacity: 0.4; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.1); }
     }
 
     /* QUICK ACTIONS */
@@ -978,6 +1432,80 @@
       font-size: 16px;
       margin-left: 8px;
     }
+
+    /* RESPONSIVE MOBILE MOBILE-FRIENDLY CSS OVERRIDES */
+    @media (max-width: 768px) {
+      .sidebar {
+        left: -256px;
+        transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: var(--shadow-lg);
+        border-right: none;
+      }
+      .sidebar.open {
+        left: 0;
+        width: 256px;
+      }
+      .sidebar.collapsed {
+        left: -256px;
+        width: 256px;
+      }
+      .main-content {
+        margin-left: 0 !important;
+        padding: 16px 20px;
+      }
+      .sidebar.collapsed + .main-content {
+        margin-left: 0;
+      }
+      .sidebar-overlay {
+        position: fixed;
+        top: 64px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(17, 24, 39, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 85;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+      }
+      .sidebar-overlay.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .search-shortcut {
+        display: none;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .nav-center {
+        display: none;
+      }
+      .org-switcher span {
+        display: none;
+      }
+      .org-switcher {
+        padding: 8px;
+      }
+      .stat-cards-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .quick-actions-bar {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        width: 100%;
+      }
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+      .greeting-title {
+        font-size: 22px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1024,6 +1552,9 @@
   </header>
 
   <div class="app-body">
+    <!-- SIDEBAR OVERLAY FOR MOBILE -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
     <!-- SIDEBAR -->
     <aside class="sidebar" id="app-sidebar">
       <div class="sidebar-menu">
@@ -1044,13 +1575,28 @@
           <i data-lucide="log-in"></i>
           <span class="sidebar-item-text">Join Session</span>
         </a>
-      </div>
-
-      <div class="sidebar-menu">
         <a href="#" class="sidebar-item">
           <i data-lucide="settings"></i>
           <span class="sidebar-item-text">Settings</span>
         </a>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="upgrade-banner">
+          <div style="font-size: 11px; font-weight: 700; color: var(--gray-600); margin-bottom: 6px;">0/20 activities</div>
+          <div class="xp-bar-track" style="height: 6px; margin-bottom: 10px; background-color: rgba(0, 0, 0, 0.05);">
+            <div class="xp-bar-fill" style="width: 15%; background: var(--gradient-primary);"></div>
+          </div>
+          <button class="btn-upgrade">👑 Upgrade</button>
+        </div>
+
+        <div class="user-profile-widget">
+          <div class="user-avatar">JD</div>
+          <div class="user-profile-details">
+            <span class="user-profile-name">John Doe</span>
+            <span class="user-profile-tier">Basic</span>
+          </div>
+        </div>
       </div>
     </aside>
 
@@ -1058,31 +1604,104 @@
     <main class="main-content">
       <!-- HEADER -->
       <section class="page-header">
-        <h1 class="greeting-title" id="greeting-text">Good Morning, John! 👋</h1>
-        <p class="header-sub">Here is your interactive learning update for today.</p>
-      </section>
+        <!-- Cute Animated Wizard Mascot helper (Aero MAGE) -->
+        <svg class="animated-mascot" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="margin-bottom: 12px;">
+          <!-- Magic cloud base -->
+          <ellipse cx="50" cy="85" rx="30" ry="8" fill="rgba(99, 102, 241, 0.08)"></ellipse>
+          <ellipse cx="50" cy="85" rx="20" ry="5" fill="rgba(139, 92, 246, 0.12)" class="mascot-sparkle"></ellipse>
 
-      <!-- QUICK ACTIONS -->
-      <div class="quick-actions-bar">
-        <button class="btn btn-primary" id="action-create">
-          <i data-lucide="plus" style="width: 18px; height: 18px;"></i>
-          Create Quiz
-        </button>
-        <button class="btn btn-secondary" id="action-start">
-          <i data-lucide="play" style="width: 18px; height: 18px;"></i>
-          Start Session
-        </button>
-        <button class="btn btn-tertiary" id="action-join">
-          <i data-lucide="log-in" style="width: 18px; height: 18px;"></i>
-          Join Session
-        </button>
-      </div>
+          <!-- Cute floating orb body -->
+          <circle cx="50" cy="55" r="22" fill="url(#orb-gradient)" stroke="rgba(99, 102, 241, 0.15)" stroke-width="1"></circle>
+
+          <!-- Floating Wizard Hat -->
+          <!-- Hat Rim -->
+          <ellipse cx="50" cy="38" rx="26" ry="6" fill="#4F46E5"></ellipse>
+          <ellipse cx="50" cy="38" rx="20" ry="4" fill="#8B5CF6"></ellipse>
+          <!-- Hat Cone -->
+          <path d="M32 36 C42 16, 58 16, 68 36 Z" fill="#6366F1"></path>
+          <!-- Gold band -->
+          <path d="M33 36 C42 34, 58 34, 67 36 C66 38, 34 38, 33 36 Z" fill="#F59E0B"></path>
+          <!-- Magic Star on Hat -->
+          <polygon points="50,15 52,21 58,21 53,25 55,31 50,27 45,31 47,25 42,21 48,21" fill="#F59E0B" class="mascot-sparkle"></polygon>
+
+          <!-- Big Cute Eyes (Blinking animation) -->
+          <circle cx="42" cy="56" r="3.5" fill="#1F2937" class="mascot-eye"></circle>
+          <circle cx="58" cy="56" r="3.5" fill="#1F2937" class="mascot-eye"></circle>
+          <!-- White reflections in eyes -->
+          <circle cx="43.5" cy="54.5" r="1.2" fill="#FFFFFF" class="mascot-eye"></circle>
+          <circle cx="59.5" cy="54.5" r="1.2" fill="#FFFFFF" class="mascot-eye"></circle>
+
+          <!-- Rosy Cheeks -->
+          <circle cx="36" cy="62" r="3" fill="#EC4899" opacity="0.4"></circle>
+          <circle cx="64" cy="62" r="3" fill="#EC4899" opacity="0.4"></circle>
+
+          <!-- Cute Smile -->
+          <path d="M47 61 Q50 64 53 61" stroke="#1F2937" stroke-width="1.5" stroke-linecap="round" fill="none"></path>
+
+          <!-- Defs for body gradient -->
+          <defs>
+            <linearGradient id="orb-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#EEF2FF"></stop>
+              <stop offset="100%" stop-color="#E0E7FF"></stop>
+            </linearGradient>
+          </defs>
+        </svg>
+
+        <div class="header-text-container">
+          <h1 class="greeting-title" id="greeting-text">Good Evening, John! 👋 Let's get started.</h1>
+        </div>
+
+        <!-- 3 Premium Floating Action Tabs -->
+        <div class="action-tabs-container">
+          <div class="action-tab" id="tab-create">
+            <div class="action-tab-icon">
+              <i data-lucide="edit-3" style="width: 18px; height: 18px;"></i>
+            </div>
+            <span class="action-tab-title">Create</span>
+            <span class="action-tab-desc">a resource</span>
+          </div>
+
+          <div class="action-tab active" id="tab-search">
+            <div class="action-tab-icon">
+              <i data-lucide="search" style="width: 18px; height: 18px;"></i>
+            </div>
+            <span class="action-tab-title">Search</span>
+            <span class="action-tab-desc">for resources</span>
+          </div>
+
+          <div class="action-tab" id="tab-upload">
+            <div class="action-tab-icon">
+              <i data-lucide="upload-cloud" style="width: 18px; height: 18px;"></i>
+            </div>
+            <span class="action-tab-title">Upload</span>
+            <span class="action-tab-desc">& enhance content</span>
+          </div>
+        </div>
+
+        <!-- Pill Search Bar -->
+        <div class="pill-search-container">
+          <i data-lucide="search" style="width: 18px; height: 18px; color: var(--gray-400); margin-right: 8px;"></i>
+          <input type="text" class="pill-search-input" id="main-pill-search" placeholder="Search for any topic (e.g. Science, Mathematics, English)...">
+          <button class="pill-search-btn" id="pill-search-submit">
+            <i data-lucide="arrow-right" style="width: 18px; height: 18px;"></i>
+          </button>
+        </div>
+
+        <!-- Browse Resources Header Section -->
+        <div class="browse-section-header">
+          <span>Browse resources for</span>
+          <span class="browse-select-underline" id="browse-dropdown-trigger">
+            University
+            <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
+          </span>
+        </div>
+      </section>
 
       <!-- STAT CARDS -->
       <div class="stat-cards-grid">
         <div class="stat-card">
           <div class="stat-card-header">
-            <span>Quizzes</span>
+            <span>Quizzes Built</span>
             <div class="stat-icon-wrapper">
               <i data-lucide="file-text" style="width: 18px; height: 18px;"></i>
             </div>
@@ -1096,47 +1715,43 @@
 
         <div class="stat-card">
           <div class="stat-card-header">
-            <span>Sessions</span>
-            <div class="stat-icon-wrapper">
-              <i data-lucide="play-circle" style="width: 18px; height: 18px;"></i>
+            <span>Learner Outreach</span>
+            <div class="stat-icon-wrapper" style="background-color: #FDF2F8; color: var(--accent-500);">
+              <i data-lucide="users" style="width: 18px; height: 18px;"></i>
             </div>
           </div>
           <div class="stat-value" id="stat-sessions">0</div>
           <div class="stat-trend trend-up">
             <i data-lucide="trending-up" style="width: 14px; height: 14px;"></i>
-            <span>+3 new this week</span>
+            <span>+18% engagement</span>
           </div>
         </div>
 
         <div class="stat-card">
           <div class="stat-card-header">
-            <span>Active Today</span>
-            <div class="stat-icon-wrapper">
-              <i data-lucide="users" style="width: 18px; height: 18px;"></i>
+            <span>Avg. Accuracy</span>
+            <div class="stat-icon-wrapper" style="background-color: #ECFDF5; color: var(--teal-500);">
+              <i data-lucide="target" style="width: 18px; height: 18px;"></i>
             </div>
           </div>
-          <div class="stat-value" id="stat-active">0</div>
-          <div class="stat-trend trend-neutral">
-            <span>Steady activity</span>
+          <div class="stat-value" id="stat-active">0%</div>
+          <div class="stat-trend trend-up">
+            <i data-lucide="trending-up" style="width: 14px; height: 14px;"></i>
+            <span>+2% vs last session</span>
           </div>
         </div>
 
         <div class="stat-card">
           <div class="stat-card-header">
-            <span>Avg. Score</span>
-            <div class="stat-icon-wrapper">
-              <i data-lucide="award" style="width: 18px; height: 18px;"></i>
+            <span>Playroom Sync</span>
+            <div class="stat-icon-wrapper" style="background-color: #FFFBEB; color: var(--amber-500);">
+              <i data-lucide="activity" style="width: 18px; height: 18px;"></i>
             </div>
           </div>
-          <div class="stat-value" id="stat-xp">0</div>
-          <div class="xp-progress-container">
-            <div class="xp-bar-track">
-              <div class="xp-bar-fill" style="width: 86%;"></div>
-            </div>
-            <div class="xp-details">
-              <span>Overall Average</span>
-              <span>86% (Goal: 90%)</span>
-            </div>
+          <div class="stat-value" id="stat-xp">0ms</div>
+          <div class="stat-trend trend-up" style="color: var(--teal-500); display: flex; align-items: center; gap: 6px;">
+            <span style="display: inline-block; width: 8px; height: 8px; background-color: var(--teal-500); border-radius: var(--radius-full); animation: statusPulse 2s infinite ease-in-out;"></span>
+            <span>WSS link online</span>
           </div>
         </div>
       </div>
@@ -1145,80 +1760,93 @@
       <div class="dashboard-layout">
         <!-- LEFT PANELS (QUIZZES & SESSIONS) -->
         <div class="dashboard-left">
-          <!-- RECENT QUIZZES -->
+          <!-- BROWSE RESOURCES / SUBJECT TOPIC CARDS -->
           <div class="panel">
             <div class="panel-header">
               <h2 class="panel-title">
-                <i data-lucide="file-text" style="color: var(--primary-500)"></i>
-                Recent Quizzes
+                <i data-lucide="book-open" style="color: #D81B60"></i>
+                Browse Resources
               </h2>
-              <a href="#" class="panel-link">View All</a>
+              <a href="#" class="panel-link" style="color: #D81B60;">See all &rarr;</a>
             </div>
 
-            <div class="quiz-cards-grid">
-              <div class="quiz-card">
-                <div class="quiz-cover">
-                  <i data-lucide="code" class="quiz-cover-icon" style="width: 32px; height: 32px;"></i>
-                  <span class="quiz-badge">10 Qs</span>
+            <!-- Subject Cards Stack -->
+            <div class="topic-cards-stack">
+              <!-- Card 1 -->
+              <div class="topic-card">
+                <div class="topic-card-left">
+                  <div class="topic-card-icon">
+                    <i data-lucide="activity" style="width: 18px; height: 18px;"></i>
+                  </div>
+                  <h3 class="topic-card-left-title">Health Sciences and Nursing</h3>
+                  <span class="topic-card-left-count">6 topics</span>
                 </div>
-                <div class="quiz-card-content">
-                  <h3 class="quiz-title">JS Basics</h3>
-                  <div class="quiz-meta">
-                    <div class="quiz-meta-item">
-                      <i data-lucide="play" style="width: 12px; height: 12px;"></i>
-                      <span>23 plays</span>
-                    </div>
+                <div class="topic-card-right">
+                  <div class="topic-list-item">
+                    <span class="topic-list-item-num">Topic 1</span>
+                    <span class="topic-list-item-name">Anatomy and Physiology</span>
                   </div>
-                  <div class="quiz-footer">
-                    <span class="quiz-status status-published">
-                      <i data-lucide="globe" style="width: 12px; height: 12px;"></i> Published
-                    </span>
-                    <i data-lucide="more-vertical" style="color: var(--gray-400)"></i>
+                  <div class="topic-list-item">
+                    <span class="topic-list-item-num">Topic 2</span>
+                    <span class="topic-list-item-name">Nursing Fundamentals</span>
                   </div>
-                </div>
-              </div>
-
-              <div class="quiz-card">
-                <div class="quiz-cover">
-                  <i data-lucide="layers" class="quiz-cover-icon" style="width: 32px; height: 32px;"></i>
-                  <span class="quiz-badge">5 Qs</span>
-                </div>
-                <div class="quiz-card-content">
-                  <h3 class="quiz-title">React 101</h3>
-                  <div class="quiz-meta">
-                    <div class="quiz-meta-item">
-                      <i data-lucide="play" style="width: 12px; height: 12px;"></i>
-                      <span>0 plays</span>
-                    </div>
+                  <div class="topic-list-item">
+                    <span class="topic-list-item-num">Topic 3</span>
+                    <span class="topic-list-item-name">Pharmacology and Medical Terminology</span>
                   </div>
-                  <div class="quiz-footer">
-                    <span class="quiz-status status-draft">
-                      <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i> Draft
-                    </span>
-                    <i data-lucide="more-vertical" style="color: var(--gray-400)"></i>
-                  </div>
+                  <a href="#" class="topic-card-see-all">See all &rarr;</a>
                 </div>
               </div>
 
-              <div class="quiz-card">
-                <div class="quiz-cover">
-                  <i data-lucide="palette" class="quiz-cover-icon" style="width: 32px; height: 32px;"></i>
-                  <span class="quiz-badge">15 Qs</span>
+              <!-- Card 2 -->
+              <div class="topic-card">
+                <div class="topic-card-left">
+                  <div class="topic-card-icon">
+                    <i data-lucide="quote" style="width: 18px; height: 18px;"></i>
+                  </div>
+                  <h3 class="topic-card-left-title">English Language Arts and Linguistics</h3>
+                  <span class="topic-card-left-count">5 topics</span>
                 </div>
-                <div class="quiz-card-content">
-                  <h3 class="quiz-title">CSS Mastery</h3>
-                  <div class="quiz-meta">
-                    <div class="quiz-meta-item">
-                      <i data-lucide="play" style="width: 12px; height: 12px;"></i>
-                      <span>8 plays</span>
-                    </div>
+                <div class="topic-card-right">
+                  <div class="topic-list-item">
+                    <span class="topic-list-item-num">Topic 1</span>
+                    <span class="topic-list-item-name">Grammar: Parts of Speech</span>
                   </div>
-                  <div class="quiz-footer">
-                    <span class="quiz-status status-published">
-                      <i data-lucide="globe" style="width: 12px; height: 12px;"></i> Published
-                    </span>
-                    <i data-lucide="more-vertical" style="color: var(--gray-400)"></i>
+                  <div class="topic-list-item">
+                    <span class="topic-list-item-num">Topic 2</span>
+                    <span class="topic-list-item-name">Grammar: Verb Tenses and Forms</span>
                   </div>
+                  <div class="topic-list-item">
+                    <span class="topic-list-item-num">Topic 3</span>
+                    <span class="topic-list-item-name">Grammar: Sentence Structure</span>
+                  </div>
+                  <a href="#" class="topic-card-see-all">See all &rarr;</a>
+                </div>
+              </div>
+
+              <!-- Card 3 -->
+              <div class="topic-card">
+                <div class="topic-card-left">
+                  <div class="topic-card-icon">
+                    <i data-lucide="flask-conical" style="width: 18px; height: 18px;"></i>
+                  </div>
+                  <h3 class="topic-card-left-title">Science</h3>
+                  <span class="topic-card-left-count">8 topics</span>
+                </div>
+                <div class="topic-card-right">
+                  <div class="topic-list-item">
+                    <span class="topic-list-item-num">Topic 1</span>
+                    <span class="topic-list-item-name">Biology</span>
+                  </div>
+                  <div class="topic-list-item">
+                    <span class="topic-list-item-num">Topic 2</span>
+                    <span class="topic-list-item-name">Psychology</span>
+                  </div>
+                  <div class="topic-list-item">
+                    <span class="topic-list-item-num">Topic 3</span>
+                    <span class="topic-list-item-name">Chemistry & Physics</span>
+                  </div>
+                  <a href="#" class="topic-card-see-all">See all &rarr;</a>
                 </div>
               </div>
             </div>
@@ -1327,8 +1955,20 @@
     // Responsive Sidebar Toggle
     const sidebar = document.getElementById('app-sidebar');
     const toggleBtn = document.getElementById('sidebar-toggle-btn');
+    const overlay = document.getElementById('sidebar-overlay');
+
     toggleBtn.addEventListener('click', () => {
-      sidebar.classList.toggle('collapsed');
+      if (window.innerWidth <= 768) {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('show');
+      } else {
+        sidebar.classList.toggle('collapsed');
+      }
+    });
+
+    overlay.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('show');
     });
 
     // Time-based Greeting
@@ -1343,12 +1983,14 @@
     }
 
     // Number Counting Animation Helper
-    function animateValue(obj, start, end, duration) {
+    function animateValue(obj, start, end, duration, suffix = '') {
+      if (!obj) return;
       let startTimestamp = null;
       const step = (timestamp) => {
         if (!startTimestamp) startTimestamp = timestamp;
         const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-        obj.innerHTML = Math.floor(progress * (end - start) + start).toLocaleString();
+        const val = Math.floor(progress * (end - start) + start);
+        obj.innerHTML = val.toLocaleString() + suffix;
         if (progress < 1) {
           window.requestAnimationFrame(step);
         }
@@ -1360,9 +2002,9 @@
     window.addEventListener('load', () => {
       setTimeout(() => {
         animateValue(document.getElementById("stat-quizzes"), 0, 12, 1000);
-        animateValue(document.getElementById("stat-sessions"), 0, 45, 1000);
-        animateValue(document.getElementById("stat-active"), 0, 8, 1000);
-        animateValue(document.getElementById("stat-xp"), 0, 86, 1000);
+        animateValue(document.getElementById("stat-sessions"), 0, 1420, 1000);
+        animateValue(document.getElementById("stat-active"), 0, 86, 1000, '%');
+        animateValue(document.getElementById("stat-xp"), 0, 14, 1000, 'ms');
       }, 200);
     });
 
@@ -1406,17 +2048,61 @@
       toast.classList.remove('show');
     });
 
-    // Interactive Button Click Action Handling
-    document.getElementById('action-create').addEventListener('click', () => {
+    // Interactive Tabs Click Handling
+    const tabCreate = document.getElementById('tab-create');
+    const tabSearch = document.getElementById('tab-search');
+    const tabUpload = document.getElementById('tab-upload');
+    const pillSearchInput = document.getElementById('main-pill-search');
+
+    function setActiveTab(activeTab, placeholderText) {
+      document.querySelectorAll('.action-tab').forEach(t => t.classList.remove('active'));
+      activeTab.classList.add('active');
+      if (pillSearchInput) {
+        pillSearchInput.placeholder = placeholderText;
+      }
+    }
+
+    tabCreate.addEventListener('click', () => {
+      setActiveTab(tabCreate, "Create a new quiz, test, or flashcard deck...");
       showToast("Redirecting to the Quiz Builder Page...");
     });
 
-    document.getElementById('action-start').addEventListener('click', () => {
-      showToast("Initializing host configuration room...");
+    tabSearch.addEventListener('click', () => {
+      setActiveTab(tabSearch, "Search for any topic (e.g. Science, Mathematics, English)...");
+      showToast("Search filter activated.");
     });
 
-    document.getElementById('action-join').addEventListener('click', () => {
-      showToast("Opening Join Game session console...");
+    tabUpload.addEventListener('click', () => {
+      setActiveTab(tabUpload, "Upload a document, PDF, or spreadsheet to import questions...");
+      showToast("Upload import dialog initiated.");
+    });
+
+    // Pill search submit trigger
+    document.getElementById('pill-search-submit').addEventListener('click', () => {
+      const q = pillSearchInput.value.trim();
+      if (q) {
+        showToast(`Searching for topic: "${q}"...`);
+      } else {
+        showToast("Please enter a topic to search.");
+      }
+    });
+
+    if (pillSearchInput) {
+      pillSearchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          document.getElementById('pill-search-submit').click();
+        }
+      });
+    }
+
+    // Browse dropdown trigger
+    document.getElementById('browse-dropdown-trigger').addEventListener('click', () => {
+      showToast("Opening workspace grade switcher (University, High School, Elementary)...");
+    });
+
+    // Floating Help Trigger
+    document.getElementById('help-btn').addEventListener('click', () => {
+      showToast("Opening live chat help center support module...");
     });
 
     // Notification Center Action Handler
@@ -1431,5 +2117,10 @@
       showToast("All notifications marked as read!");
     });
   </script>
+
+  <!-- Floating Help Button -->
+  <button class="floating-help-btn" id="help-btn" aria-label="Help">
+    <i data-lucide="help-circle" style="width: 20px; height: 20px;"></i>
+  </button>
 </body>
 </html>
