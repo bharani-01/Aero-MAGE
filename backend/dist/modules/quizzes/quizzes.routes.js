@@ -1,0 +1,12 @@
+import { Router } from 'express';
+import { authenticateToken, requirePermission } from '../../middleware/auth.js';
+import { listQuizzes, getQuizDetails, createQuiz, updateQuiz, updateQuizVisibility, cloneQuiz } from './quizzes.controller.js';
+const router = Router();
+router.use(authenticateToken);
+router.get('/', requirePermission('quiz:read'), listQuizzes);
+router.get('/:quizId', requirePermission('quiz:read'), getQuizDetails);
+router.post('/', requirePermission('quiz:create'), createQuiz);
+router.post('/:quizId/clone', requirePermission('quiz:create'), cloneQuiz);
+router.put('/:quizId', requirePermission('quiz:update'), updateQuiz);
+router.put('/:quizId/visibility', requirePermission('quiz:update'), updateQuizVisibility);
+export default router;

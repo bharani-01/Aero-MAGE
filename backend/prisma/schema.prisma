@@ -1,0 +1,419 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  internal_id            BigInt    @id @default(autoincrement())
+  id                     String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                  String
+  email_lower            String    @unique
+  password_hash          String?   @db.VarChar(255)
+  display_name           String    @db.VarChar(50)
+  avatar_url             String?   @db.VarChar(500)
+  status                 String    @default("unverified") @db.VarChar(20)
+  is_verified            Boolean   @default(false)
+  has_password           Boolean   @default(false)
+  google_id              String?   @unique @db.VarChar(100)
+  country                String?   @db.VarChar(2)
+  timezone               String?   @default("UTC") @db.VarChar(50)
+  last_login_at          DateTime? @db.Timestamptz
+  locked_until           DateTime? @db.Timestamptz
+  failed_login_attempts  Int       @default(0)
+  deactivated_at         DateTime? @db.Timestamptz
+  version                Int       @default(1)
+  deleted_at             DateTime? @db.Timestamptz
+  created_at             DateTime  @default(now()) @db.Timestamptz
+  updated_at             DateTime  @default(now()) @db.Timestamptz
+
+  user_roles             UserRole[]
+  refresh_tokens         RefreshToken[]
+  login_histories        LoginHistory[]
+  email_verification_tokens EmailVerificationToken[]
+  password_reset_tokens  PasswordResetToken[]
+  profile                UserProfile?
+  gamification           UserGamification?
+  streak                 UserStreak?
+
+  // Tenant management relations
+  organizations_owned    Organization[]     @relation("OrgOwner")
+  organizations_created  Organization[]     @relation("OrgCreator")
+  organizations_updated  Organization[]     @relation("OrgUpdater")
+  organization_memberships OrganizationMember[]
+  rooms_created          Room[]             @relation("RoomCreator")
+  quizzes_created        Quiz[]             @relation("QuizCreator")
+  sessions_hosted        LiveSession[]      @relation("SessionHost")
+  session_participations SessionParticipant[]
+
+  @@map("user")
+}
+
+model Role {
+  internal_id     BigInt     @id @default(autoincrement())
+  id              String     @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String     @db.VarChar(50)
+  display_name    String     @db.VarChar(100)
+  description     String?    @db.VarChar(500)
+  scope           String     @default("system") @db.VarChar(20)
+  organization_id String?    @db.Uuid
+  is_system       Boolean    @default(false)
+  is_default      Boolean    @default(false)
+  hierarchy_level Int        @default(0)
+  deleted_at      DateTime?  @db.Timestamptz
+  created_at      DateTime   @default(now()) @db.Timestamptz
+  updated_at      DateTime   @default(now()) @db.Timestamptz
+  created_by      String?    @db.Uuid
+  updated_by      String?    @db.Uuid
+
+  user_roles       UserRole[]
+  role_permissions RolePermission[]
+
+  @@unique([name, organization_id])
+  @@map("role")
+}
+
+model UserRole {
+  internal_id     BigInt    @id @default(autoincrement())
+  id              String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @db.Uuid
+  role_id         String    @db.Uuid
+  organization_id String?   @db.Uuid
+  department_id   String?   @db.Uuid
+  assigned_by     String?   @db.Uuid
+  assigned_at     DateTime  @default(now()) @db.Timestamptz
+
+  user            User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  role            Role      @relation(fields: [role_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, role_id, organization_id, department_id])
+  @@map("user_role")
+}
+
+model Organization {
+  internal_id     BigInt     @id @default(autoincrement())
+  id              String     @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String     @db.VarChar(100)
+  name_lower      String     @unique
+  slug            String     @unique @db.VarChar(100)
+  description     String?    @db.VarChar(2000)
+  status          String     @default("active") @db.VarChar(20)
+  owner_user_id   String     @db.Uuid
+  member_count    Int        @default(1)
+  version         Int        @default(1)
+  deleted_at      DateTime?  @db.Timestamptz
+  created_at      DateTime   @default(now()) @db.Timestamptz
+  updated_at      DateTime   @default(now()) @db.Timestamptz
+  created_by      String     @db.Uuid
+  updated_by      String?    @db.Uuid
+
+  // Relations
+  owner           User       @relation("OrgOwner", fields: [owner_user_id], references: [id])
+  creator         User       @relation("OrgCreator", fields: [created_by], references: [id])
+  updater         User?      @relation("OrgUpdater", fields: [updated_by], references: [id])
+  members         OrganizationMember[]
+  rooms           Room[]
+  quizzes         Quiz[]
+
+  @@map("organization")
+}
+
+model OrganizationMember {
+  internal_id     BigInt    @id @default(autoincrement())
+  id              String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organization_id String    @db.Uuid
+  user_id         String    @db.Uuid
+  department_id   String?   @db.Uuid
+  status          String    @default("active") @db.VarChar(20)
+  joined_at       DateTime  @default(now()) @db.Timestamptz
+  removed_at      DateTime? @db.Timestamptz
+  invited_by      String?   @db.Uuid
+
+  organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([organization_id, user_id])
+  @@map("organization_member")
+}
+
+model Room {
+  internal_id     BigInt    @id @default(autoincrement())
+  id              String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  room_code       String    @unique @db.VarChar(10)
+  name            String    @db.VarChar(100)
+  organization_id String    @db.Uuid
+  status          String    @default("active") @db.VarChar(20)
+  created_at      DateTime  @default(now()) @db.Timestamptz
+  updated_at      DateTime  @default(now()) @db.Timestamptz
+  created_by      String    @db.Uuid
+
+  organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  creator         User         @relation("RoomCreator", fields: [created_by], references: [id])
+  posts           RoomPost[]
+
+  @@map("room")
+}
+
+model Quiz {
+  internal_id        BigInt     @id @default(autoincrement())
+  id                 String     @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title              String     @db.VarChar(200)
+  description        String?    @db.VarChar(2000)
+  cover_image_url    String?    @db.VarChar(500)
+  status             String     @default("draft") @db.VarChar(20) // draft, published, archived
+  visibility         String     @default("private") @db.VarChar(20) // private, department, organization, public
+  difficulty         String     @default("medium") @db.VarChar(20) // easy, medium, hard, expert
+  question_count     Int        @default(0)
+  total_points       Int        @default(0)
+  created_by         String     @db.Uuid
+  organization_id    String?    @db.Uuid
+  deleted_at         DateTime?  @db.Timestamptz
+  created_at         DateTime   @default(now()) @db.Timestamptz
+  updated_at         DateTime   @default(now()) @db.Timestamptz
+
+  creator            User       @relation("QuizCreator", fields: [created_by], references: [id], onDelete: Cascade)
+  organization       Organization? @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  questions          Question[]
+  live_sessions      LiveSession[]
+  room_posts         RoomPost[]
+
+  @@map("quiz")
+}
+
+model Question {
+  internal_id     BigInt     @id @default(autoincrement())
+  id              String     @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quiz_id         String     @db.Uuid
+  question_text   String     @db.VarChar(2000)
+  question_type   String     @default("multiple_choice") @db.VarChar(50) // multiple_choice, true_false
+  points          Int        @default(10)
+  time_limit      Int        @default(30)
+  options_json    String     @db.VarChar(4000) // JSON Array string storing choice text list
+  correct_answer  String     @db.VarChar(500) // Correct value match text or choice index
+  created_at      DateTime   @default(now()) @db.Timestamptz
+  updated_at      DateTime   @default(now()) @db.Timestamptz
+
+  quiz            Quiz       @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+
+  @@map("question")
+}
+
+model LiveSession {
+  internal_id            BigInt     @id @default(autoincrement())
+  id                     String     @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_code           String     @unique @db.VarChar(10)
+  quiz_id                String     @db.Uuid
+  host_user_id           String     @db.Uuid
+  status                 String     @default("waiting") @db.VarChar(20) // waiting, active, paused, completed
+  current_question_index  Int        @default(0)
+  is_options_revealed    Boolean    @default(false)
+  created_at             DateTime   @default(now()) @db.Timestamptz
+  updated_at             DateTime   @default(now()) @db.Timestamptz
+
+  quiz                   Quiz       @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+  host                   User       @relation("SessionHost", fields: [host_user_id], references: [id])
+  participants           SessionParticipant[]
+
+  @@map("live_session")
+}
+
+model SessionParticipant {
+  internal_id     BigInt      @id @default(autoincrement())
+  id              String      @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id      String      @db.Uuid
+  user_id         String?     @db.Uuid
+  display_name    String      @db.VarChar(100)
+  score           Int         @default(0)
+  joined_at       DateTime    @default(now()) @db.Timestamptz
+
+  session         LiveSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  user            User?       @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@unique([session_id, user_id])
+  @@map("session_participant")
+}
+
+model Permission {
+  internal_id     BigInt     @id @default(autoincrement())
+  id              String     @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String     @unique @db.VarChar(100)
+  display_name    String     @db.VarChar(200)
+  description     String?    @db.VarChar(500)
+  resource        String     @db.VarChar(50)
+  action          String     @db.VarChar(50)
+
+  role_permissions RolePermission[]
+
+  @@map("permission")
+}
+
+model RolePermission {
+  internal_id   BigInt   @id @default(autoincrement())
+  id            String   @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role_id       String   @db.Uuid
+  permission_id String   @db.Uuid
+  created_at    DateTime @default(now()) @db.Timestamptz
+  created_by    String?  @db.Uuid
+
+  role          Role       @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  permission    Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@unique([role_id, permission_id])
+  @@map("role_permission")
+}
+
+model RefreshToken {
+  internal_id     BigInt     @id @default(autoincrement())
+  id              String     @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String     @db.Uuid
+  token_hash      String     @unique @db.VarChar(255)
+  is_used         Boolean    @default(false)
+  is_revoked      Boolean    @default(false)
+  expires_at      DateTime   @db.Timestamptz
+  ip_address      String?    @db.VarChar(45)
+  user_agent      String?    @db.VarChar(500)
+  created_at      DateTime   @default(now()) @db.Timestamptz
+
+  user            User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("refresh_token")
+}
+
+model EmailVerificationToken {
+  internal_id     BigInt    @id @default(autoincrement())
+  id              String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @db.Uuid
+  token_hash      String    @unique @db.VarChar(255)
+  is_used         Boolean   @default(false)
+  expires_at      DateTime  @db.Timestamptz
+  created_at      DateTime  @default(now()) @db.Timestamptz
+
+  user            User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("email_verification_token")
+}
+
+model PasswordResetToken {
+  internal_id     BigInt    @id @default(autoincrement())
+  id              String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @db.Uuid
+  token_hash      String    @unique @db.VarChar(255)
+  is_used         Boolean   @default(false)
+  expires_at      DateTime  @db.Timestamptz
+  ip_address      String?   @db.VarChar(45)
+  created_at      DateTime  @default(now()) @db.Timestamptz
+
+  user            User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_token")
+}
+
+model LoginHistory {
+  internal_id     BigInt    @id @default(autoincrement())
+  id              String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @db.Uuid
+  login_method    String    @db.VarChar(20)
+  status          String    @db.VarChar(20)
+  ip_address      String?   @db.VarChar(45)
+  user_agent      String?   @db.VarChar(500)
+  device_type     String?   @db.VarChar(20)
+  failure_reason  String?   @db.VarChar(100)
+  created_at      DateTime  @default(now()) @db.Timestamptz
+
+  user            User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("login_history")
+}
+
+model UserProfile {
+  internal_id     BigInt    @id @default(autoincrement())
+  id              String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @unique @db.Uuid
+  bio             String?   @db.VarChar(500)
+  banner_url      String?   @db.VarChar(500)
+  website_url     String?   @db.VarChar(255)
+  location        String?   @db.VarChar(100)
+  follower_count  Int       @default(0)
+  following_count Int       @default(0)
+  is_public       Boolean   @default(true)
+  updated_at      DateTime  @default(now()) @db.Timestamptz
+
+  user            User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_profile")
+}
+
+model UserGamification {
+  internal_id           BigInt    @id @default(autoincrement())
+  id                    String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id               String    @unique @db.Uuid
+  total_xp              BigInt    @default(0)
+  current_level         Int       @default(1)
+  xp_to_next_level      Int       @default(100)
+  total_coins           Int       @default(0)
+  current_title         String?   @db.VarChar(100)
+  quizzes_played        Int       @default(0)
+  quizzes_created       Int       @default(0)
+  quizzes_won           Int       @default(0)
+  total_correct         Int       @default(0)
+  total_answered        Int       @default(0)
+  total_sessions        Int       @default(0)
+  marketplace_publishes Int       @default(0)
+  marketplace_clones    Int       @default(0)
+  daily_xp_earned       Int       @default(0)
+  daily_xp_date         DateTime  @default(now()) @db.Date
+  updated_at            DateTime  @default(now()) @db.Timestamptz
+
+  user                  User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_gamification")
+}
+
+model UserStreak {
+  internal_id        BigInt    @id @default(autoincrement())
+  id                 String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String    @unique @db.Uuid
+  current_streak     Int       @default(0)
+  longest_streak     Int       @default(0)
+  last_activity_date DateTime? @db.Date
+  streak_started_at  DateTime? @db.Date
+  updated_at         DateTime  @default(now()) @db.Timestamptz
+
+  user               User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_streak")
+}
+
+model RoomPost {
+  internal_id     BigInt      @id @default(autoincrement())
+  id              String      @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  room_id         String      @db.Uuid
+  author_name     String      @db.VarChar(100)
+  author_role     String      @default("Faculty") @db.VarChar(50)
+  content         String      @db.VarChar(4000)
+  quiz_id         String?     @db.Uuid
+  created_at      DateTime    @default(now()) @db.Timestamptz
+  updated_at      DateTime    @default(now()) @db.Timestamptz
+
+  room            Room        @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  quiz            Quiz?       @relation(fields: [quiz_id], references: [id], onDelete: SetNull)
+  comments        RoomComment[]
+
+  @@map("room_post")
+}
+
+model RoomComment {
+  internal_id     BigInt    @id @default(autoincrement())
+  id              String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  post_id         String    @db.Uuid
+  author_name     String    @db.VarChar(100)
+  text            String    @db.VarChar(2000)
+  created_at      DateTime  @default(now()) @db.Timestamptz
+
+  post            RoomPost  @relation(fields: [post_id], references: [id], onDelete: Cascade)
+
+  @@map("room_comment")
+}
