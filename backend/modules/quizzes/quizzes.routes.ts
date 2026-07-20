@@ -10,7 +10,8 @@ import {
   toggleBookmark,
   getUserBookmarks,
   recordQuizAttempt,
-  getQuizAttempts
+  getQuizAttempts,
+  getMyQuizHistory
 } from './quizzes.controller.js';
 
 const router = Router();
@@ -18,6 +19,7 @@ const router = Router();
 router.use(authenticateToken as any);
 
 router.get('/', requirePermission('quiz:read') as any, listQuizzes as any);
+router.get('/attempts/history', requirePermission('quiz:read') as any, getMyQuizHistory as any);
 router.get('/bookmarks/my', requirePermission('quiz:read') as any, getUserBookmarks as any);
 router.get('/:quizId', requirePermission('quiz:read') as any, getQuizDetails as any);
 router.post('/', requirePermission('quiz:create') as any, createQuiz as any);

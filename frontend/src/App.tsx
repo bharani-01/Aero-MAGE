@@ -32,6 +32,7 @@ import StudentLiveSession from './pages/student/StudentLiveSession.tsx';
 import StudentSoloQuiz from './pages/student/StudentSoloQuiz.tsx';
 import StudentLibrary from './pages/student/StudentLibrary.tsx';
 import StudentRooms from './pages/student/StudentRooms.tsx';
+import QuizHistory from './pages/student/QuizHistory.tsx';
 import ClassroomStream from './pages/ClassroomStream.tsx';
 import QuizLibrary from './pages/QuizLibrary.tsx';
 import UserProfile from './pages/UserProfile.tsx';
@@ -227,6 +228,14 @@ export function App() {
           element={
             <RoleProtectedRoute allowedRoles={['student', 'user']}>
               <StudentLibrary />
+            </RoleProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/student/history" 
+          element={
+            <RoleProtectedRoute allowedRoles={['student', 'user']}>
+              <QuizHistory />
             </RoleProtectedRoute>
           } 
         />

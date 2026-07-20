@@ -892,7 +892,7 @@ export const rejectRoomRequest = async (req: AuthenticatedRequest, res: Response
 // 10. Update Classroom Details & Access Policy (Faculty / Instructor)
 export const updateRoom = async (req: AuthenticatedRequest, res: Response) => {
   const { roomId } = req.params;
-  const { name, roomMode, bannerUrl } = req.body;
+  const { name, roomMode, bannerUrl, themeColor } = req.body;
   const userId = req.user!.id;
 
   try {
@@ -911,6 +911,7 @@ export const updateRoom = async (req: AuthenticatedRequest, res: Response) => {
         name: name !== undefined ? name.trim() : room.name,
         status: roomMode !== undefined ? roomMode : room.status,
         banner_url: bannerUrl !== undefined ? bannerUrl : room.banner_url,
+        theme_color: themeColor !== undefined ? themeColor : room.theme_color,
         updated_at: new Date()
       }
     });

@@ -116,7 +116,7 @@ export const getQuizDetails = async (req: AuthenticatedRequest, res: Response) =
 
 // 3. Create Quiz
 export const createQuiz = async (req: AuthenticatedRequest, res: Response) => {
-  const { title, description, cover_image_url, visibility, difficulty, questions } = req.body;
+  const { title, description, cover_image_url, visibility, difficulty, shuffle_questions, shuffle_options, review_policy, questions } = req.body;
 
   if (!title) {
     return res.status(400).json({ success: false, error: { message: 'Quiz title is required.' } });
@@ -141,6 +141,9 @@ export const createQuiz = async (req: AuthenticatedRequest, res: Response) => {
         status: 'published',
         visibility: visibility || 'private',
         difficulty: difficulty || 'medium',
+        shuffle_questions: Boolean(shuffle_questions),
+        shuffle_options: Boolean(shuffle_options),
+        review_policy: review_policy || 'full_with_answers',
         question_count: questionCount,
         total_points: totalPoints,
         created_by: userId,
@@ -149,6 +152,7 @@ export const createQuiz = async (req: AuthenticatedRequest, res: Response) => {
           create: parsedQuestions.map((q: any) => ({
             question_text: q.question_text || 'Untitled Question',
             question_type: q.question_type || 'multiple_choice',
+            section_name: q.section_name || null,
             points: q.points || 10,
             time_limit: q.time_limit !== undefined ? q.time_limit : 30,
             options_json: JSON.stringify(q.options || []),
@@ -168,7 +172,7 @@ export const createQuiz = async (req: AuthenticatedRequest, res: Response) => {
 // 4. Update Quiz
 export const updateQuiz = async (req: AuthenticatedRequest, res: Response) => {
   const { quizId } = req.params;
-  const { title, description, cover_image_url, visibility, difficulty, questions } = req.body;
+  const { title, description, cover_image_url, visibility, difficulty, shuffle_questions, shuffle_options, review_policy, questions } = req.body;
 
   try {
     const existing = await prisma.quiz.findUnique({ where: { id: quizId } });
@@ -190,12 +194,16 @@ export const updateQuiz = async (req: AuthenticatedRequest, res: Response) => {
         cover_image_url: cover_image_url !== undefined ? cover_image_url : existing.cover_image_url,
         visibility: visibility || existing.visibility,
         difficulty: difficulty || existing.difficulty,
+        shuffle_questions: shuffle_questions !== undefined ? Boolean(shuffle_questions) : existing.shuffle_questions,
+        shuffle_options: shuffle_options !== undefined ? Boolean(shuffle_options) : existing.shuffle_options,
+        review_policy: review_policy || existing.review_policy,
         question_count: questionCount,
         total_points: totalPoints,
         questions: {
           create: parsedQuestions.map((q: any) => ({
             question_text: q.question_text || 'Untitled Question',
             question_type: q.question_type || 'multiple_choice',
+            section_name: q.section_name || null,
             points: q.points || 10,
             time_limit: q.time_limit !== undefined ? q.time_limit : 30,
             options_json: JSON.stringify(q.options || []),
@@ -478,3 +486,30 @@ export const getQuizAttempts = async (req: AuthenticatedRequest, res: Response) 
     res.status(500).json({ success: false, error: { message: 'Failed to fetch quiz attempt analytics.' } });
   }
 };
+
+// 11. Get My Quiz History
+export const getMyQuizHistory = async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user!.id;
+
+  try {
+    const attempts = await (prisma as any).quizAttempt.findMany({
+      where: { user_id: userId },
+      include: {
+        quiz: {
+          select: {
+            title: true,
+            cover_image_url: true,
+            total_points: true,
+            difficulty: true
+          }
+        }
+      },
+      orderBy: { completed_at: 'desc' }
+    });
+
+    res.json({ success: true, data: attempts });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: { message: error.message || 'Failed to retrieve quiz history.' } });
+  }
+};
+

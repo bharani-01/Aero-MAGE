@@ -1,6 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 
+function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 export default function StudentSoloQuiz() {
   const { quizId } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
@@ -93,7 +102,10 @@ export default function StudentSoloQuiz() {
       if (json.success && json.data) {
         const qData = json.data;
         setQuiz(qData);
-        const qList = qData.questions || [];
+        let qList = qData.questions || [];
+        if (qData.shuffle_questions) {
+          qList = shuffleArray(qList);
+        }
         setQuestions(qList);
 
         let totalPts = 0;
@@ -156,11 +168,17 @@ export default function StudentSoloQuiz() {
 
   const parseOptions = (q: any): string[] => {
     if (!q) return [];
-    if (Array.isArray(q.options)) return q.options;
-    if (typeof q.options_json === 'string') {
-      try { return JSON.parse(q.options_json); } catch {}
+    let opts: string[] = [];
+    if (Array.isArray(q.options)) opts = q.options;
+    else if (typeof q.options_json === 'string') {
+      try { opts = JSON.parse(q.options_json); } catch { }
+    } else if (q.options_json) {
+      opts = q.options_json;
     }
-    return [];
+    if (quiz && quiz.shuffle_options && (q.question_type === 'multiple_choice' || q.question_type === 'multi_select' || q.question_type === 'audio_mcq' || q.question_type === 'video_mcq')) {
+      opts = shuffleArray(opts);
+    }
+    return opts;
   };
 
   const handleConfirmAnswer = () => {
@@ -191,12 +209,12 @@ export default function StudentSoloQuiz() {
     } else if (qType === 'ordering') {
       rawAnswer = orderedItems.join(' -> ');
       let correctOrder: string[] = [];
-      try { correctOrder = JSON.parse(currentQ.correct_answer || '[]'); } catch {}
+      try { correctOrder = JSON.parse(currentQ.correct_answer || '[]'); } catch { }
       isCorrect = JSON.stringify(orderedItems) === JSON.stringify(correctOrder);
     } else if (qType === 'match_following') {
       rawAnswer = JSON.stringify(matchSelections);
       let correctPairs: Record<string, string> = {};
-      try { correctPairs = JSON.parse(currentQ.correct_answer || '{}'); } catch {}
+      try { correctPairs = JSON.parse(currentQ.correct_answer || '{}'); } catch { }
       let allMatch = true;
       Object.keys(correctPairs).forEach(key => {
         if (matchSelections[key] !== correctPairs[key]) allMatch = false;
@@ -329,7 +347,7 @@ export default function StudentSoloQuiz() {
                   const r = (u.role || u.role_name || '').toLowerCase();
                   if (r.includes('faculty') || r.includes('teacher')) role = 'faculty';
                 }
-              } catch {}
+              } catch { }
               if (role === 'faculty') navigate('/faculty/quizzes');
               else navigate('/student/dashboard');
             }}
@@ -382,7 +400,7 @@ export default function StudentSoloQuiz() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-primary/10 via-surface to-surface flex flex-col items-center justify-center p-4 md:p-8">
         <div className="bg-white border border-outline-variant rounded-3xl p-8 md:p-12 max-w-2xl w-full shadow-2xl flex flex-col items-center text-center gap-8 animate-scale">
-          
+
           <div className="w-24 h-24 bg-amber-100 border-4 border-amber-300 rounded-full flex items-center justify-center text-amber-700 shadow-lg">
             <span className="material-symbols-outlined text-[54px]">
               {accuracy >= 80 ? 'emoji_events' : accuracy >= 50 ? 'star' : 'target'}
@@ -400,43 +418,57 @@ export default function StudentSoloQuiz() {
           </div>
 
           {/* Stat Cards Grid */}
-          <div className="grid grid-cols-3 gap-4 w-full">
-            <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex flex-col items-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Score</span>
-              <span className="text-headline-md font-black text-primary mt-1">{totalScore} <span className="text-xs font-semibold text-slate-500">/ {totalPossiblePoints}</span></span>
-            </div>
+          {(quiz.review_policy === 'full_with_answers' || quiz.review_policy === 'score_only') ? (
+            <div className="grid grid-cols-3 gap-4 w-full">
+              <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex flex-col items-center">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Score</span>
+                <span className="text-headline-md font-black text-primary mt-1">{totalScore} <span className="text-xs font-semibold text-slate-500">/ {totalPossiblePoints}</span></span>
+              </div>
 
-            <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex flex-col items-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-green-700">Accuracy</span>
-              <span className="text-headline-md font-black text-green-700 mt-1">{accuracy}%</span>
-            </div>
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex flex-col items-center">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-green-700">Accuracy</span>
+                <span className="text-headline-md font-black text-green-700 mt-1">{accuracy}%</span>
+              </div>
 
-            <div className="bg-violet-50 border border-violet-200 rounded-2xl p-4 flex flex-col items-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700">Correct</span>
-              <span className="text-headline-md font-black text-violet-700 mt-1">{correctCount} <span className="text-xs font-semibold text-slate-500">/ {questions.length}</span></span>
+              <div className="bg-violet-50 border border-violet-200 rounded-2xl p-4 flex flex-col items-center">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700">Correct</span>
+                <span className="text-headline-md font-black text-violet-700 mt-1">{correctCount} <span className="text-xs font-semibold text-slate-500">/ {questions.length}</span></span>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-center text-xs font-bold text-slate-600 w-full flex items-center justify-center gap-1.5">
+              <span className="material-symbols-outlined text-sm text-slate-500">lock</span>
+              Immediate score disclosure is restricted by the instructor's policy.
+            </div>
+          )}
 
           {/* Breakdown List */}
-          <div className="w-full text-left bg-slate-50 border border-slate-200 rounded-2xl p-6 flex flex-col gap-4 max-h-60 overflow-y-auto">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Question Breakdown</h3>
-            {questions.map((q, idx) => {
-              const ans = userAnswers[idx];
-              return (
-                <div key={q.id || idx} className="bg-white border border-outline-variant p-3.5 rounded-xl flex justify-between items-center text-xs">
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${ans?.isCorrect ? 'bg-green-600 text-white' : 'bg-red-500 text-white'}`}>
-                      <span className="material-symbols-outlined text-xs">{ans?.isCorrect ? 'check' : 'close'}</span>
+          {quiz.review_policy === 'full_with_answers' ? (
+            <div className="w-full text-left bg-slate-50 border border-slate-200 rounded-2xl p-6 flex flex-col gap-4 max-h-60 overflow-y-auto">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Question Breakdown</h3>
+              {questions.map((q, idx) => {
+                const ans = userAnswers[idx];
+                return (
+                  <div key={q.id || idx} className="bg-white border border-outline-variant p-3.5 rounded-xl flex justify-between items-center text-xs">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${ans?.isCorrect ? 'bg-green-600 text-white' : 'bg-red-500 text-white'}`}>
+                        <span className="material-symbols-outlined text-xs">{ans?.isCorrect ? 'check' : 'close'}</span>
+                      </span>
+                      <span className="font-semibold text-on-surface truncate">Q{idx + 1}. {q.question_text}</span>
+                    </div>
+                    <span className={`font-bold ml-2 flex-shrink-0 ${ans?.isCorrect ? 'text-green-600' : 'text-red-500'}`}>
+                      +{ans?.pointsEarned || 0} pts
                     </span>
-                    <span className="font-semibold text-on-surface truncate">Q{idx + 1}. {q.question_text}</span>
                   </div>
-                  <span className={`font-bold ml-2 flex-shrink-0 ${ans?.isCorrect ? 'text-green-600' : 'text-red-500'}`}>
-                    +{ans?.pointsEarned || 0} pts
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (quiz.review_policy === 'score_only') && (
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-center text-xs font-bold text-slate-600 w-full flex items-center justify-center gap-1.5">
+              <span className="material-symbols-outlined text-sm text-slate-500">lock</span>
+              Detailed correct/incorrect question breakdown is hidden.
+            </div>
+          )}
 
           {/* Action buttons */}
           <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
@@ -471,7 +503,7 @@ export default function StudentSoloQuiz() {
                     const r = (u.role || u.role_name || '').toLowerCase();
                     if (r.includes('faculty') || r.includes('teacher')) role = 'faculty';
                   }
-                } catch {}
+                } catch { }
                 if (role === 'faculty') navigate('/faculty/quizzes');
                 else navigate('/student/dashboard');
               }}
@@ -490,21 +522,20 @@ export default function StudentSoloQuiz() {
   // ── ACTIVE QUESTION VIEW ──
   return (
     <div className="min-h-screen bg-surface flex flex-col justify-between p-4 md:p-8 max-w-4xl mx-auto">
-      
+
       {/* Quiz Header Bar */}
       <div className="flex justify-between items-center bg-white border border-outline-variant rounded-2xl p-4 shadow-sm">
         <div>
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-primary">
-            Question {currentIdx + 1} of {questions.length}
+            Question {currentIdx + 1} of {questions.length} {currentQ?.section_name ? `• ${currentQ.section_name}` : ''}
           </span>
           <h2 className="text-body-lg font-bold text-on-surface">{quiz.title}</h2>
         </div>
 
         {/* Question Timer */}
         {!noTimer && countdown !== null && (
-          <div className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-sm ${
-            countdown <= 5 ? 'bg-red-500 text-white animate-bounce' : 'bg-primary/10 text-primary'
-          }`}>
+          <div className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-sm ${countdown <= 5 ? 'bg-red-500 text-white animate-bounce' : 'bg-primary/10 text-primary'
+            }`}>
             <span className="material-symbols-outlined text-base">timer</span>
             <span>{countdown}s</span>
           </div>
@@ -513,7 +544,7 @@ export default function StudentSoloQuiz() {
 
       {/* Question Card */}
       <div className="my-6 bg-white border border-outline-variant rounded-3xl p-6 sm:p-8 shadow-md flex flex-col gap-6">
-        
+
         {/* Question Text */}
         <div>
           <div className="flex justify-between items-center text-xs text-on-surface-variant font-bold mb-2">
@@ -539,11 +570,10 @@ export default function StudentSoloQuiz() {
                   key={i}
                   disabled={questionSubmitted}
                   onClick={() => setSelectedOption(opt)}
-                  className={`w-full text-left p-4 rounded-2xl text-xs font-extrabold border-2 transition flex items-center justify-between ${
-                    isSelected
+                  className={`w-full text-left p-4 rounded-2xl text-xs font-extrabold border-2 transition flex items-center justify-between ${isSelected
                       ? 'border-primary bg-primary/10 text-primary shadow-sm'
                       : 'border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 text-slate-800'
-                  }`}
+                    }`}
                 >
                   <span>{opt}</span>
                   {isSelected && <span className="material-symbols-outlined text-base">check_circle</span>}
@@ -563,11 +593,10 @@ export default function StudentSoloQuiz() {
                     if (isSelected) setSelectedOptions(selectedOptions.filter(o => o !== opt));
                     else setSelectedOptions([...selectedOptions, opt]);
                   }}
-                  className={`w-full text-left p-4 rounded-2xl text-xs font-extrabold border-2 transition flex items-center justify-between ${
-                    isSelected
+                  className={`w-full text-left p-4 rounded-2xl text-xs font-extrabold border-2 transition flex items-center justify-between ${isSelected
                       ? 'border-primary bg-primary/10 text-primary shadow-sm'
                       : 'border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 text-slate-800'
-                  }`}
+                    }`}
                 >
                   <span>{opt}</span>
                   <span className="material-symbols-outlined text-base">

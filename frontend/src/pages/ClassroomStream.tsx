@@ -2,6 +2,16 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout.tsx';
 import ConfirmationModal from '../components/ConfirmationModal.tsx';
+import QRCode from 'qrcode';
+
+const ROOM_THEMES: Record<string, { primary: string, bg: string, border: string, text: string, textLight: string, hover: string }> = {
+  indigo: { primary: 'bg-indigo-600', bg: 'bg-indigo-50/50', border: 'border-indigo-100', text: 'text-indigo-900', textLight: 'text-indigo-600', hover: 'hover:bg-indigo-700' },
+  emerald: { primary: 'bg-emerald-600', bg: 'bg-emerald-50/50', border: 'border-emerald-100', text: 'text-emerald-900', textLight: 'text-emerald-600', hover: 'hover:bg-emerald-700' },
+  amber: { primary: 'bg-amber-600', bg: 'bg-amber-50/50', border: 'border-amber-100', text: 'text-amber-900', textLight: 'text-amber-600', hover: 'hover:bg-amber-700' },
+  rose: { primary: 'bg-rose-600', bg: 'bg-rose-50/50', border: 'border-rose-100', text: 'text-rose-900', textLight: 'text-rose-600', hover: 'hover:bg-rose-700' },
+  cyan: { primary: 'bg-cyan-600', bg: 'bg-cyan-50/50', border: 'border-cyan-100', text: 'text-cyan-900', textLight: 'text-cyan-600', hover: 'hover:bg-cyan-700' },
+  violet: { primary: 'bg-violet-600', bg: 'bg-violet-50/50', border: 'border-violet-100', text: 'text-violet-900', textLight: 'text-violet-600', hover: 'hover:bg-violet-700' },
+};
 
 interface RoomPost {
   id: string;
@@ -87,7 +97,20 @@ export default function ClassroomStream() {
   const [editRoomName, setEditRoomName] = useState('');
   const [editRoomMode, setEditRoomMode] = useState('code_only');
   const [editBannerUrl, setEditBannerUrl] = useState('');
+  const [editThemeColor, setEditThemeColor] = useState('indigo');
   const [updatingRoom, setUpdatingRoom] = useState(false);
+
+  const [showQRCodeModal, setShowQRCodeModal] = useState(false);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
+
+  useEffect(() => {
+    if (room?.room_code) {
+      const inviteUrl = `${window.location.origin}/join?code=${room.room_code}`;
+      QRCode.toDataURL(inviteUrl, { width: 300, margin: 2 })
+        .then(url => setQrCodeDataUrl(url))
+        .catch(err => console.error('Failed to generate QR Code:', err));
+    }
+  }, [room?.room_code]);
 
   const [showDeleteRoomModal, setShowDeleteRoomModal] = useState(false);
   const [deletingRoom, setDeletingRoom] = useState(false);
@@ -96,6 +119,7 @@ export default function ClassroomStream() {
     setEditRoomName(room?.name || '');
     setEditRoomMode(room?.status || 'code_only');
     setEditBannerUrl(room?.banner_url || '');
+    setEditThemeColor(room?.theme_color || 'indigo');
     setShowEditRoomModal(true);
   };
 
@@ -113,7 +137,8 @@ export default function ClassroomStream() {
         body: JSON.stringify({
           name: editRoomName,
           roomMode: editRoomMode,
-          bannerUrl: editBannerUrl
+          bannerUrl: editBannerUrl,
+          themeColor: editThemeColor
         })
       });
       const json = await res.json();
@@ -508,6 +533,7 @@ export default function ClassroomStream() {
   }
 
   const classroomBanner = room.banner_url || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1200&auto=format&fit=crop';
+  const theme = ROOM_THEMES[room.theme_color] || ROOM_THEMES.indigo;
 
   return (
     <DashboardLayout>
@@ -517,6 +543,30 @@ export default function ClassroomStream() {
         <div className="h-56 sm:h-64 w-full rounded-3xl overflow-hidden relative shadow-lg group">
           <img src={classroomBanner} alt={room.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-700" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+
+          {/* Quick share buttons */}
+          <div className="absolute top-4 right-4 flex gap-2 z-10">
+            <button
+              onClick={() => {
+                const inviteUrl = `${window.location.origin}/join?code=${room.room_code}`;
+                navigator.clipboard.writeText(inviteUrl);
+                alert('Invite link copied to clipboard!');
+              }}
+              className="bg-black/40 hover:bg-black/60 backdrop-blur-md text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 transition"
+              title="Copy Shareable Invite Link"
+            >
+              <span className="material-symbols-outlined text-sm">link</span>
+              Invite Link
+            </button>
+            <button
+              onClick={() => setShowQRCodeModal(true)}
+              className="bg-black/40 hover:bg-black/60 backdrop-blur-md text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 transition"
+              title="View Room Join QR Code"
+            >
+              <span className="material-symbols-outlined text-sm">qr_code_2</span>
+              QR Code
+            </button>
+          </div>
 
           <div className="absolute bottom-6 left-6 sm:bottom-8 sm:left-8 right-6 z-10 text-white flex flex-col justify-end gap-2">
             <span className="bg-white/20 backdrop-blur-md text-white font-extrabold text-[10px] px-3.5 py-1 rounded-full uppercase tracking-wider w-fit">
@@ -538,8 +588,8 @@ export default function ClassroomStream() {
           <button
             onClick={() => setActiveTab('stream')}
             className={`flex-1 py-3 text-xs font-extrabold rounded-xl transition flex items-center justify-center gap-2 ${activeTab === 'stream'
-                ? 'bg-primary text-white shadow-md'
-                : 'text-on-surface-variant hover:text-primary'
+                ? `${theme.primary} text-white shadow-md`
+                : `text-on-surface-variant hover:${theme.textLight}`
               }`}
           >
             <span className="material-symbols-outlined text-base">forum</span>
@@ -549,8 +599,8 @@ export default function ClassroomStream() {
           <button
             onClick={() => setActiveTab('members')}
             className={`flex-1 py-3 text-xs font-extrabold rounded-xl transition flex items-center justify-center gap-2 relative ${activeTab === 'members'
-                ? 'bg-primary text-white shadow-md'
-                : 'text-on-surface-variant hover:text-primary'
+                ? `${theme.primary} text-white shadow-md`
+                : `text-on-surface-variant hover:${theme.textLight}`
               }`}
           >
             <span className="material-symbols-outlined text-base">group</span>
@@ -565,8 +615,8 @@ export default function ClassroomStream() {
           <button
             onClick={() => setActiveTab('settings')}
             className={`flex-1 py-3 text-xs font-extrabold rounded-xl transition flex items-center justify-center gap-2 ${activeTab === 'settings'
-                ? 'bg-primary text-white shadow-md'
-                : 'text-on-surface-variant hover:text-primary'
+                ? `${theme.primary} text-white shadow-md`
+                : `text-on-surface-variant hover:${theme.textLight}`
               }`}
           >
             <span className="material-symbols-outlined text-base">settings</span>
@@ -1399,14 +1449,79 @@ export default function ClassroomStream() {
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase text-on-surface-variant mb-1">Cover Banner Image URL</label>
-              <input
-                type="url"
-                value={editBannerUrl}
-                onChange={(e) => setEditBannerUrl(e.target.value)}
-                className="w-full border border-outline rounded-xl px-4 py-3 text-xs font-semibold bg-slate-50 focus:bg-white focus:ring-2 focus:ring-primary"
-                placeholder="https://images.unsplash.com/photo-..."
-              />
+              <label className="block text-[11px] font-bold uppercase text-on-surface-variant mb-1">Cover Banner Image</label>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="url"
+                  value={editBannerUrl}
+                  onChange={(e) => setEditBannerUrl(e.target.value)}
+                  className="flex-1 border border-outline rounded-xl px-4 py-2 text-xs font-semibold bg-slate-50 focus:bg-white focus:ring-2 focus:ring-primary"
+                  placeholder="Paste cover URL..."
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  id="classroom-banner-upload"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (evt) => {
+                        if (evt.target?.result) setEditBannerUrl(evt.target.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                <label
+                  htmlFor="classroom-banner-upload"
+                  className="bg-slate-100 hover:bg-slate-200 border border-outline-variant rounded-xl px-3 py-2 text-xs font-bold text-slate-800 cursor-pointer flex items-center gap-1 active:scale-95 transition"
+                >
+                  <span className="material-symbols-outlined text-sm">upload</span>
+                  Upload
+                </label>
+              </div>
+
+              {/* Banner Presets */}
+              <div className="grid grid-cols-4 gap-2 mb-2">
+                {[
+                  'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=400',
+                  'https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=400',
+                  'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?q=80&w=400',
+                  'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=400'
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setEditBannerUrl(preset)}
+                    className={`h-10 rounded-lg overflow-hidden border-2 transition ${editBannerUrl.includes(preset.split('?')[0]) ? 'border-primary' : 'border-transparent hover:scale-95'}`}
+                  >
+                    <img src={preset} alt="preset" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-on-surface-variant mb-2">Classroom Theme Color</label>
+              <div className="flex gap-2">
+                {Object.keys(ROOM_THEMES).map((themeName) => {
+                  const tObj = ROOM_THEMES[themeName];
+                  const isSelected = editThemeColor === themeName;
+                  return (
+                    <button
+                      key={themeName}
+                      type="button"
+                      onClick={() => setEditThemeColor(themeName)}
+                      className={`w-8 h-8 rounded-full ${tObj.primary} flex items-center justify-center text-white font-bold transition transform hover:scale-110 relative ${isSelected ? 'ring-2 ring-offset-2 ring-slate-800' : ''}`}
+                      title={themeName}
+                    >
+                      {isSelected && <span className="material-symbols-outlined text-sm">check</span>}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
@@ -1429,7 +1544,42 @@ export default function ClassroomStream() {
         </div>
       )}
 
-
+      {/* QR CODE MODAL */}
+      {showQRCodeModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 sm:p-8 shadow-2xl relative border border-outline-variant/30 flex flex-col items-center text-center gap-4">
+            <div className="flex justify-between items-center w-full border-b border-outline-variant pb-3">
+              <h3 className="text-headline-sm font-bold text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">qr_code_2</span>
+                Classroom QR Code
+              </h3>
+              <button type="button" onClick={() => setShowQRCodeModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+            
+            <p className="text-xs text-slate-500">Scan this code with a mobile device to join the classroom instantly.</p>
+            
+            <div className="border border-slate-200 p-4 rounded-2xl bg-white shadow-inner flex items-center justify-center min-w-[200px] min-h-[200px]">
+              {qrCodeDataUrl ? (
+                <img 
+                  src={qrCodeDataUrl} 
+                  alt="Classroom QR Code" 
+                  className="w-48 h-48"
+                />
+              ) : (
+                <div className="w-48 h-48 flex items-center justify-center text-xs font-bold text-slate-400 animate-pulse">
+                  Generating QR Code...
+                </div>
+              )}
+            </div>
+            
+            <div className="bg-slate-50 rounded-xl px-4 py-2 text-xs font-mono font-bold text-slate-700">
+              Access Code: {room.room_code}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DELETE ROOM 2-STEP CONFIRMATION MODAL */}
       <ConfirmationModal

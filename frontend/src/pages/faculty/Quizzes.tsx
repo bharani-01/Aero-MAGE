@@ -27,6 +27,7 @@ interface QuestionDraft {
   id: string;
   questionText: string;
   questionType: QuestionType;
+  sectionName?: string;
   options: string[];          // MCQ / True-False / Multi-select / Image-choice option labels
   imageOptions: string[];     // image_choice: one URL per option slot
   correctAnswer: string;      // primary correct answer (serialised for complex types)
@@ -64,6 +65,7 @@ const blankQuestion = (overrides?: Partial<QuestionDraft>): QuestionDraft => ({
   id: `q-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   questionText: '',
   questionType: 'multiple_choice',
+  sectionName: '',
   options: ['Option A', 'Option B', 'Option C', 'Option D'],
   imageOptions: ['', '', '', ''],
   correctAnswer: 'Option A',
@@ -129,6 +131,14 @@ export default function FacultyQuizzes() {
   const [visibility, setVisibility] = useState('private');
   const [difficulty, setDifficulty] = useState('medium');
   const [quizMode, setQuizMode] = useState<QuizMode>('classic');
+  const [shuffleQuestions, setShuffleQuestions] = useState(false);
+  const [shuffleOptions, setShuffleOptions] = useState(false);
+  const [reviewPolicy, setReviewPolicy] = useState('full_with_answers');
+
+  // Modals inside builder
+  const [showCSVImportModal, setShowCSVImportModal] = useState(false);
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false);
+  const [showInteractivePreviewModal, setShowInteractivePreviewModal] = useState(false);
 
   // Questions
   const [questions, setQuestions] = useState<QuestionDraft[]>([blankQuestion()]);
@@ -211,9 +221,13 @@ export default function FacultyQuizzes() {
       coverImageUrl,
       visibility,
       difficulty,
+      shuffle_questions: shuffleQuestions,
+      shuffle_options: shuffleOptions,
+      review_policy: reviewPolicy,
       questions: questions.map(q => ({
         questionText: q.questionText,
         questionType: q.questionType,
+        section_name: q.sectionName || null,
         options: serialiseOptions(q),
         correctAnswer: serialiseCorrectAnswer(q),
         points: q.points,
@@ -281,6 +295,9 @@ export default function FacultyQuizzes() {
     setEditingQuizId(null);
     setTitle(''); setDescription(''); setCoverImageUrl(presetBanners[0]);
     setVisibility('private'); setDifficulty('medium'); setQuizMode('classic');
+    setShuffleQuestions(false);
+    setShuffleOptions(false);
+    setReviewPolicy('full_with_answers');
     setQuestions([blankQuestion()]);
     setShowBuilderForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -299,6 +316,9 @@ export default function FacultyQuizzes() {
     setCoverImageUrl(quiz.cover_image_url || '');
     setVisibility(quiz.visibility || 'private');
     setDifficulty(quiz.difficulty || 'medium');
+    setShuffleQuestions(Boolean(quiz.shuffle_questions));
+    setShuffleOptions(Boolean(quiz.shuffle_options));
+    setReviewPolicy(quiz.review_policy || 'full_with_answers');
 
     const mapped: QuestionDraft[] = (quiz.questions || []).map((q: any, idx: number) => {
       let opts: string[] = [];
@@ -307,6 +327,7 @@ export default function FacultyQuizzes() {
       const qType: QuestionType = q.question_type || 'multiple_choice';
       const draft = blankQuestion({ id: q.id || `q-${idx}`, questionType: qType });
       draft.questionText = q.question_text || '';
+      draft.sectionName = q.section_name || '';
       draft.points = q.points || 10;
       draft.timeLimit = q.time_limit || 30;
       draft.mediaUrl = q.media_url || '';
@@ -442,7 +463,7 @@ export default function FacultyQuizzes() {
             </button>
           </div>
         ) : (
-          <div className="flex justify-between items-center border-b border-outline-variant pb-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-outline-variant pb-4 gap-4">
             <div>
               <h1 className="text-headline-lg font-bold text-on-surface mb-1">
                 {editingQuizId ? 'Edit Quiz' : 'Interactive Quiz Builder'}
@@ -451,10 +472,24 @@ export default function FacultyQuizzes() {
                 Configure quiz settings, options, media clips, and grace periods.
               </p>
             </div>
-            <button onClick={() => setShowBuilderForm(false)}
-              className="bg-slate-100 text-slate-800 font-bold px-4 py-2 rounded-xl border border-outline hover:bg-slate-200 transition text-xs flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">close</span>Close Builder
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button type="button" onClick={() => setShowTemplatesModal(true)}
+                className="bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1 transition">
+                <span className="material-symbols-outlined text-sm">auto_awesome</span>Templates
+              </button>
+              <button type="button" onClick={() => setShowCSVImportModal(true)}
+                className="bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1 transition">
+                <span className="material-symbols-outlined text-sm">upload_file</span>Import CSV
+              </button>
+              <button type="button" onClick={() => setShowInteractivePreviewModal(true)}
+                className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1 transition">
+                <span className="material-symbols-outlined text-sm">visibility</span>Live Preview
+              </button>
+              <button onClick={() => setShowBuilderForm(false)}
+                className="bg-slate-100 text-slate-800 font-bold px-4 py-2 rounded-xl border border-outline hover:bg-slate-200 transition text-xs flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm">close</span>Close Builder
+              </button>
+            </div>
           </div>
         )}
 
@@ -501,6 +536,26 @@ export default function FacultyQuizzes() {
                       value={visibility} onChange={e => setVisibility(e.target.value)}>
                       <option value="private">Private (Workspace)</option>
                       <option value="public">Public (Everyone)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Shuffle settings & review policy */}
+                <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-b border-slate-100 py-4">
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="shuffle-questions" checked={shuffleQuestions} onChange={e => setShuffleQuestions(e.target.checked)} className="w-4 h-4 text-primary border-outline rounded focus:ring-primary" />
+                    <label htmlFor="shuffle-questions" className="text-xs font-bold text-on-surface cursor-pointer select-none">🔀 Shuffle Questions</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="shuffle-options" checked={shuffleOptions} onChange={e => setShuffleOptions(e.target.checked)} className="w-4 h-4 text-primary border-outline rounded focus:ring-primary" />
+                    <label htmlFor="shuffle-options" className="text-xs font-bold text-on-surface cursor-pointer select-none">🔀 Shuffle MCQ Options</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold text-on-surface select-none whitespace-nowrap">🔒 Review Mode:</label>
+                    <select value={reviewPolicy} onChange={e => setReviewPolicy(e.target.value)} className="w-full border border-outline rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-primary">
+                      <option value="full_with_answers">Full Answers &amp; Scores</option>
+                      <option value="score_only">Score Only</option>
+                      <option value="no_review">No Review</option>
                     </select>
                   </div>
                 </div>
@@ -938,6 +993,214 @@ export default function FacultyQuizzes() {
           </div>
         </div>
       )}
+
+      {/* CSV IMPORT MODAL */}
+      {showCSVImportModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-outline-variant/30 flex flex-col gap-4">
+            <div className="flex justify-between items-center border-b border-outline-variant pb-3">
+              <h3 className="text-headline-sm font-bold text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">upload_file</span>
+                Import Questions from CSV
+              </h3>
+              <button type="button" onClick={() => setShowCSVImportModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Paste comma-separated question lines (CSV format) or choose a CSV file. Each row format should be:
+              <br />
+              <code className="bg-slate-100 px-1 py-0.5 rounded text-[10px] font-mono block mt-1 break-all">
+                Question Prompt,Question Type,Section Name,Points,Time Limit,Options (semicolon-separated),Correct Answer
+              </code>
+            </p>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[10px] font-mono text-slate-500 whitespace-pre-wrap">
+              {"What is 2+2?,multiple_choice,Arithmetic,10,30,3;4;5;6,4\nIs Earth flat?,true_false,Geography,10,20,True;False,False"}
+            </div>
+
+            <textarea
+              id="csv-text-area"
+              className="w-full h-32 border border-outline rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-primary bg-white text-slate-800"
+              placeholder="Paste CSV rows here..."
+            />
+
+            <div className="flex justify-between items-center">
+              <input
+                type="file"
+                accept=".csv,.txt"
+                id="csv-file-input"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (evt) => {
+                      const text = evt.target?.result as string;
+                      const ta = document.getElementById('csv-text-area') as HTMLTextAreaElement;
+                      if (ta) ta.value = text;
+                    };
+                    reader.readAsText(file);
+                  }
+                }}
+              />
+              <label htmlFor="csv-file-input" className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded-lg text-xs cursor-pointer border border-outline-variant flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm">attach_file</span> Choose CSV File
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  const ta = document.getElementById('csv-text-area') as HTMLTextAreaElement;
+                  if (!ta || !ta.value.trim()) return;
+                  const lines = ta.value.split('\n').filter(l => l.trim().length > 0);
+                  const imported: QuestionDraft[] = [];
+                  lines.forEach((line) => {
+                    const parts = line.split(',');
+                    if (parts.length >= 2) {
+                      const text = parts[0]?.trim();
+                      const type = (parts[1]?.trim() as QuestionType) || 'multiple_choice';
+                      const section = parts[2]?.trim() || '';
+                      const pts = Number(parts[3]?.trim()) || 10;
+                      const limit = Number(parts[4]?.trim()) || 30;
+                      const optsRaw = parts[5]?.trim() || '';
+                      const opts = optsRaw ? optsRaw.split(';') : ['Option A', 'Option B', 'Option C', 'Option D'];
+                      const correct = parts[6]?.trim() || opts[0];
+                      imported.push(blankQuestion({
+                        questionText: text,
+                        questionType: type,
+                        sectionName: section,
+                        points: pts,
+                        timeLimit: limit,
+                        options: opts,
+                        correctAnswer: correct,
+                        correctAnswers: [correct]
+                      }));
+                    }
+                  });
+                  if (imported.length > 0) {
+                    setQuestions(prev => {
+                      if (prev.length === 1 && prev[0].questionText === '') {
+                        return imported;
+                      }
+                      return [...prev, ...imported];
+                    });
+                    setSuccessMsg(`Successfully imported ${imported.length} questions from CSV!`);
+                  }
+                  setShowCSVImportModal(false);
+                }}
+                className="bg-primary text-white font-bold px-4 py-2 rounded-xl text-xs shadow hover:bg-primary/95 transition flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-sm">download</span> Import Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QUIZ TEMPLATES MODAL */}
+      {showTemplatesModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-outline-variant/30 flex flex-col gap-4">
+            <div className="flex justify-between items-center border-b border-outline-variant pb-3">
+              <h3 className="text-headline-sm font-bold text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">auto_awesome</span>
+                Select Quiz Template
+              </h3>
+              <button type="button" onClick={() => setShowTemplatesModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+            <p className="text-xs text-slate-600">
+              Select a structure to quickly populate questions. This will add preset questions to your current draft.
+            </p>
+
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const warmups = [
+                    blankQuestion({ questionText: 'Recall: What is the primary focus of today\'s study topic?', questionType: 'multiple_choice', sectionName: 'Warmup', timeLimit: 15 }),
+                    blankQuestion({ questionText: 'True or False: We reviewed the prerequisites in the previous lesson.', questionType: 'true_false', sectionName: 'Warmup', timeLimit: 15, options: ['True', 'False'], correctAnswer: 'True' })
+                  ];
+                  setQuestions(warmups);
+                  setTitle('5-Min Lecture Warmup');
+                  setShowTemplatesModal(false);
+                }}
+                className="p-4 rounded-xl border border-outline hover:border-primary text-left bg-slate-50 hover:bg-slate-100/50 transition flex items-center gap-3 w-full"
+              >
+                <span className="material-symbols-outlined text-2xl text-purple-600">local_fire_department</span>
+                <div>
+                  <h4 className="text-xs font-bold text-on-surface">5-Min Lecture Warmup</h4>
+                  <p className="text-[10px] text-slate-500 mt-0.5">2 simple recall questions (MCQ + True/False) to start the class.</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const standard = Array.from({ length: 5 }).map((_, idx) =>
+                    blankQuestion({
+                      questionText: `Assessment Question ${idx + 1}: [Enter question topic here]`,
+                      questionType: 'multiple_choice',
+                      sectionName: `Section ${Math.ceil((idx + 1) / 3)}`,
+                      timeLimit: 30,
+                      points: 10
+                    })
+                  );
+                  setQuestions(standard);
+                  setTitle('Standard Assessment Quiz');
+                  setShowTemplatesModal(false);
+                }}
+                className="p-4 rounded-xl border border-outline hover:border-primary text-left bg-slate-50 hover:bg-slate-100/50 transition flex items-center gap-3 w-full"
+              >
+                <span className="material-symbols-outlined text-2xl text-blue-600">assignment_turned_in</span>
+                <div>
+                  <h4 className="text-xs font-bold text-on-surface">Standard Assessment</h4>
+                  <p className="text-[10px] text-slate-500 mt-0.5">5 structured MCQs with multiple sections and standard points.</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const coding = [
+                    blankQuestion({ questionText: 'Given the code snippet below, what is the output?\n\nconsole.log(typeof NaN);', questionType: 'multiple_choice', sectionName: 'Syntax', timeLimit: 45, options: ['number', 'string', 'undefined', 'object'], correctAnswer: 'number' }),
+                    blankQuestion({ questionText: 'Fill in the blank to complete the function declaration: \n\nfunction name(___) { }', questionType: 'fill_blank', sectionName: 'Syntax', timeLimit: 45, correctAnswer: 'params' })
+                  ];
+                  setQuestions(coding);
+                  setTitle('Coding Assessment Quiz');
+                  setShowTemplatesModal(false);
+                }}
+                className="p-4 rounded-xl border border-outline hover:border-primary text-left bg-slate-50 hover:bg-slate-100/50 transition flex items-center gap-3 w-full"
+              >
+                <span className="material-symbols-outlined text-2xl text-emerald-600">code</span>
+                <div>
+                  <h4 className="text-xs font-bold text-on-surface">Coding &amp; Syntax Quiz</h4>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Code-oriented questions (Syntax analysis &amp; Fill-in-the-blank parameters).</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* INTERACTIVE PREVIEW MODAL */}
+      {showInteractivePreviewModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl relative border border-slate-800 text-white flex flex-col gap-5">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-xs font-black uppercase text-amber-500 tracking-wider flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm">visibility</span>
+                Interactive Builder Preview
+              </h3>
+              <button type="button" onClick={() => setShowInteractivePreviewModal(false)} className="text-slate-400 hover:text-white font-bold">
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+
+            <InteractivePreviewPlayer questions={questions} onClose={() => setShowInteractivePreviewModal(false)} />
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
@@ -986,8 +1249,8 @@ function QuestionCard({ q, qIdx, total, onUpdate, onRemove, onTypeChange, dragId
 
       <div className="px-6 pb-6 flex flex-col gap-5">
         {/* Row: Question Text + Type + Time + Points */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-1">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          <div className="col-span-2 md:col-span-2">
             <label className="block text-xs font-bold text-on-surface-variant uppercase mb-1.5">Question Type</label>
             <select className="w-full border border-outline rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary text-xs bg-white font-medium"
               value={q.questionType} onChange={e => onTypeChange(e.target.value as QuestionType)}>
@@ -996,15 +1259,21 @@ function QuestionCard({ q, qIdx, total, onUpdate, onRemove, onTypeChange, dragId
               ))}
             </select>
           </div>
-          <div className="md:col-span-2">
+          <div className="col-span-2 md:col-span-2">
             <label className="block text-xs font-bold text-on-surface-variant uppercase mb-1.5">Question Prompt *</label>
             <input type="text" className="w-full border border-outline rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary text-label-md font-medium"
               placeholder={q.questionType === 'fill_blank' ? 'e.g. The capital of France is ___ .' : `e.g. Question ${qIdx + 1}…`}
               value={q.questionText} onChange={e => onUpdate({ questionText: e.target.value })} required />
           </div>
-          <div>
+          <div className="col-span-2 md:col-span-2">
+            <label className="block text-xs font-bold text-on-surface-variant uppercase mb-1.5">Section Name (Optional)</label>
+            <input type="text" className="w-full border border-outline rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary text-xs font-medium"
+              placeholder="e.g. Section A: Math"
+              value={q.sectionName || ''} onChange={e => onUpdate({ sectionName: e.target.value })} />
+          </div>
+          <div className="col-span-1 md:col-span-3">
             <label className="block text-xs font-bold text-on-surface-variant uppercase mb-1.5">Time Limit</label>
-            <select className="w-full border border-outline rounded-xl px-3 py-2 text-xs bg-white"
+            <select className="w-full border border-outline rounded-xl px-3 py-2.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary"
               value={q.timeLimit} onChange={e => onUpdate({ timeLimit: Number(e.target.value) })}>
               <option value={0}>No Limit (Unlimited)</option>
               {[10, 15, 20, 30, 45, 60, 90, 120].map(t => <option key={t} value={t}>{t}s</option>)}
@@ -1012,13 +1281,13 @@ function QuestionCard({ q, qIdx, total, onUpdate, onRemove, onTypeChange, dragId
             {q.timeLimit === 0 && (
               <p className="text-[10px] text-amber-600 font-semibold mt-1 flex items-center gap-1">
                 <span className="material-symbols-outlined text-xs">info</span>
-                No countdown shown — faculty manually advances.
+                No countdown shown.
               </p>
             )}
           </div>
-          <div>
+          <div className="col-span-1 md:col-span-3">
             <label className="block text-xs font-bold text-on-surface-variant uppercase mb-1.5">Points</label>
-            <select className="w-full border border-outline rounded-xl px-3 py-2 text-xs bg-white"
+            <select className="w-full border border-outline rounded-xl px-3 py-2.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary"
               value={q.points} onChange={e => onUpdate({ points: Number(e.target.value) })}>
               {[5, 10, 20, 25, 50, 100].map(p => <option key={p} value={p}>{p} pts</option>)}
             </select>
@@ -1458,6 +1727,173 @@ function MediaSection({ q, onUpdate }: MediaSectionProps) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function InteractivePreviewPlayer({ questions, onClose }: { questions: QuestionDraft[], onClose: () => void }) {
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [isAnswered, setIsAnswered] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [score, setScore] = useState(0);
+
+  const activeQuestion = questions[currentIdx];
+
+  // Set up timer
+  useEffect(() => {
+    if (!activeQuestion) return;
+    setTimeLeft(activeQuestion.timeLimit || 30);
+    setSelectedOption(null);
+    setIsAnswered(false);
+  }, [currentIdx, activeQuestion]);
+
+  useEffect(() => {
+    if (timeLeft <= 0 || isAnswered) return;
+    const timer = setTimeout(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          setIsAnswered(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [timeLeft, isAnswered]);
+
+  if (!activeQuestion) {
+    return <div className="text-center text-xs p-6 text-slate-400">No questions to preview. Add questions in the builder first!</div>;
+  }
+
+  const handleSelect = (opt: string) => {
+    if (isAnswered) return;
+    setSelectedOption(opt);
+  };
+
+  const handleSubmit = () => {
+    setIsAnswered(true);
+    const correct = activeQuestion.correctAnswer;
+    if (selectedOption === correct) {
+      setScore(prev => prev + activeQuestion.points);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentIdx < questions.length - 1) {
+      setCurrentIdx(prev => prev + 1);
+    } else {
+      // Completed preview
+      setIsAnswered(true);
+      setCurrentIdx(questions.length); // triggers final score screen
+    }
+  };
+
+  if (currentIdx >= questions.length) {
+    return (
+      <div className="flex flex-col items-center justify-center text-center p-6 gap-4">
+        <span className="material-symbols-outlined text-5xl text-green-400">emoji_events</span>
+        <h4 className="text-base font-black text-white">Preview Completed!</h4>
+        <p className="text-xs text-slate-400 font-medium">Your mock score is <strong className="text-white font-bold">{score}</strong> points.</p>
+        <div className="flex gap-3 mt-2">
+          <button
+            type="button"
+            onClick={() => {
+              setCurrentIdx(0);
+              setScore(0);
+            }}
+            className="bg-slate-800 text-white font-bold px-6 py-2.5 rounded-xl text-xs hover:bg-slate-700 transition"
+          >
+            Try Again
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="bg-primary text-white font-bold px-6 py-2.5 rounded-xl text-xs hover:bg-primary/95 transition shadow"
+          >
+            Close Preview
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4 text-slate-200">
+      {/* Progress & Timer */}
+      <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+        <span>Question {currentIdx + 1} of {questions.length}</span>
+        {activeQuestion.sectionName && <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full">{activeQuestion.sectionName}</span>}
+        <span className="text-amber-500 flex items-center gap-1">
+          <span className="material-symbols-outlined text-xs">timer</span>
+          {timeLeft}s
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+        <div className="bg-primary h-full transition-all" style={{ width: `${((currentIdx + 1) / questions.length) * 100}%` }} />
+      </div>
+
+      {/* Prompt */}
+      <div className="bg-slate-800 border border-slate-700/60 rounded-2xl p-5 mt-2">
+        <p className="text-sm font-bold text-white leading-relaxed">{activeQuestion.questionText}</p>
+      </div>
+
+      {/* Options */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        {activeQuestion.options.map((opt, idx) => {
+          const isSelected = selectedOption === opt;
+          const isCorrect = opt === activeQuestion.correctAnswer;
+          let btnClass = "border-slate-850 bg-slate-800 hover:bg-slate-750 text-slate-300";
+          if (isSelected) {
+            btnClass = "border-primary bg-primary/20 text-white font-bold";
+          }
+          if (isAnswered) {
+            if (isCorrect) {
+              btnClass = "border-green-500 bg-green-500/20 text-green-300 font-bold";
+            } else if (isSelected) {
+              btnClass = "border-red-500 bg-red-500/20 text-red-300";
+            }
+          }
+          return (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => handleSelect(opt)}
+              disabled={isAnswered}
+              className={`p-3 rounded-xl border text-xs text-left transition flex items-center gap-2 ${btnClass}`}
+            >
+              <span className="w-6 h-6 rounded-lg bg-slate-750 text-[10px] font-bold flex items-center justify-center flex-shrink-0 text-slate-400">
+                {String.fromCharCode(65 + idx)}
+              </span>
+              <span className="line-clamp-1">{opt}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex justify-end gap-2 border-t border-slate-800/80 pt-3.5 mt-2">
+        {!isAnswered ? (
+          <button
+            type="button"
+            disabled={!selectedOption}
+            onClick={handleSubmit}
+            className="bg-primary hover:bg-primary/95 text-white font-bold px-6 py-2.5 rounded-xl text-xs disabled:opacity-50 transition active:scale-95 shadow"
+          >
+            Submit Answer
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleNext}
+            className="bg-slate-800 hover:bg-slate-750 text-white font-bold px-6 py-2.5 rounded-xl text-xs transition flex items-center gap-1"
+          >
+            {currentIdx < questions.length - 1 ? 'Next Question' : 'Finish Preview'}
+            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

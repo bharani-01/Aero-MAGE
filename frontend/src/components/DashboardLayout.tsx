@@ -83,6 +83,7 @@ export default function DashboardLayout({ role: propRole, children }: DashboardL
       { label: 'Dashboard', icon: 'dashboard', path: '/student/dashboard' },
       { label: 'Classrooms', icon: 'school', path: '/student/rooms' },
       { label: 'Quiz Library', icon: 'local_library', path: '/student/library' },
+      { label: 'Quiz History', icon: 'history', path: '/student/history' },
       { label: 'My Profile', icon: 'person', path: '/profile' },
     ];
   }
