@@ -7,11 +7,11 @@ interface SidebarLink {
 }
 
 interface DashboardLayoutProps {
-  role: 'super_admin' | 'organization_admin' | 'it_admin' | 'faculty' | 'student' | 'user';
+  role?: 'super_admin' | 'organization_admin' | 'it_admin' | 'faculty' | 'student' | 'user';
   children: React.ReactNode;
 }
 
-export default function DashboardLayout({ role, children }: DashboardLayoutProps) {
+export default function DashboardLayout({ role: propRole, children }: DashboardLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -22,11 +22,35 @@ export default function DashboardLayout({ role, children }: DashboardLayoutProps
     navigate('/login');
   };
 
+  // Resolve role dynamically from prop or localStorage
+  let resolvedRole = propRole;
+  if (!resolvedRole) {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        const r = (user.role || user.role_name || user.roles?.[0] || '').toLowerCase();
+        if (r.includes('faculty') || r.includes('teacher') || r.includes('professor')) {
+          resolvedRole = 'faculty';
+        } else if (r.includes('super_admin')) {
+          resolvedRole = 'super_admin';
+        } else if (r.includes('org')) {
+          resolvedRole = 'organization_admin';
+        } else if (r.includes('it')) {
+          resolvedRole = 'it_admin';
+        } else {
+          resolvedRole = 'student';
+        }
+      }
+    } catch {}
+  }
+  if (!resolvedRole) resolvedRole = 'student';
+
   // Resolve role headers & links
   let roleDisplayName = '';
   let links: SidebarLink[] = [];
 
-  if (role === 'super_admin') {
+  if (resolvedRole === 'super_admin') {
     roleDisplayName = 'Super Admin';
     links = [
       { label: 'Platform Health', icon: 'health_and_safety', path: '/superadmin/health' },
@@ -34,38 +58,43 @@ export default function DashboardLayout({ role, children }: DashboardLayoutProps
       { label: 'Admins', icon: 'manage_accounts', path: '/superadmin/admins' },
       { label: 'Audit Logs', icon: 'receipt_long', path: '/superadmin/audit' },
     ];
-  } else if (role === 'organization_admin') {
+  } else if (resolvedRole === 'organization_admin') {
     roleDisplayName = 'Org Admin';
     links = [
       { label: 'Users', icon: 'groups', path: '/orgadmin/dashboard' },
     ];
-  } else if (role === 'it_admin') {
+  } else if (resolvedRole === 'it_admin') {
     roleDisplayName = 'IT Admin';
     links = [
       { label: 'SMTP Config', icon: 'mail', path: '/itadmin/smtp' },
       { label: 'Audit Logs', icon: 'receipt_long', path: '/itadmin/audit' },
     ];
-  } else if (role === 'faculty') {
+  } else if (resolvedRole === 'faculty') {
     roleDisplayName = 'Faculty Console';
     links = [
       { label: 'Quizzes', icon: 'quiz', path: '/faculty/quizzes' },
       { label: 'Classrooms', icon: 'school', path: '/faculty/rooms' },
-      { label: 'Quiz Library', icon: 'local_library', path: '/library' },
+      { label: 'Quiz Library', icon: 'local_library', path: '/faculty/library' },
+      { label: 'My Profile', icon: 'person', path: '/profile' },
     ];
   } else {
     roleDisplayName = 'Student Hub';
     links = [
       { label: 'Dashboard', icon: 'dashboard', path: '/student/dashboard' },
-      { label: 'Quiz Library', icon: 'local_library', path: '/library' },
+      { label: 'Classrooms', icon: 'school', path: '/student/rooms' },
+      { label: 'Quiz Library', icon: 'local_library', path: '/student/library' },
+      { label: 'My Profile', icon: 'person', path: '/profile' },
     ];
   }
 
   return (
     <div className="bg-surface font-body-md text-on-surface min-h-screen flex flex-col selection:bg-primary-fixed selection:text-on-primary-fixed pb-24 lg:pb-8">
       
-      {/* Top Common Navbar */}
-      <nav className="w-full bg-white/90 backdrop-blur-md border-b border-outline-variant shadow-sm sticky top-0 z-50">
+      {/* Top Common Navbar (Consistent Header across Web & Mobile) */}
+      <nav className="w-full bg-white/95 backdrop-blur-md border-b border-outline-variant shadow-sm sticky top-0 z-50">
         <div className="flex justify-between items-center px-4 md:px-8 py-3.5 max-w-7xl mx-auto w-full">
+          
+          {/* Logo & Role Badge */}
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-primary text-white rounded-xl flex items-center justify-center shadow-md">
               <span className="material-symbols-outlined text-[22px]">widgets</span>
@@ -81,10 +110,32 @@ export default function DashboardLayout({ role, children }: DashboardLayoutProps
             </span>
           </div>
 
+          {/* Desktop Web View Navigation Links (Inline Header Nav) */}
+          <div className="hidden lg:flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-2xl border border-slate-200">
+            {links.map((link) => {
+              const isActive = location.pathname === link.path;
+              return (
+                <button
+                  key={link.path}
+                  onClick={() => navigate(link.path)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                    isActive
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-on-surface-variant hover:text-primary hover:bg-white/60'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-base">{link.icon}</span>
+                  {link.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* User Logout Button */}
           <div className="flex items-center gap-3">
             <button 
               onClick={handleLogout}
-              className="text-on-surface-variant hover:text-primary transition-colors text-xs font-bold border border-outline rounded-xl px-3.5 py-1.5 hover:bg-slate-50 flex items-center gap-1"
+              className="text-on-surface-variant hover:text-primary transition-colors text-xs font-bold border border-outline rounded-xl px-3.5 py-1.5 hover:bg-slate-50 flex items-center gap-1 active:scale-95"
             >
               <span className="material-symbols-outlined text-xs">logout</span>
               <span className="hidden sm:inline">Logout</span>
@@ -93,35 +144,11 @@ export default function DashboardLayout({ role, children }: DashboardLayoutProps
         </div>
       </nav>
 
-      {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 md:py-8 flex-grow w-full grid grid-cols-1 lg:grid-cols-4 gap-6 md:gap-8">
-        
-        {/* Navigation Sidebar (Desktop view) */}
-        <aside className="hidden lg:flex lg:col-span-1 flex-col gap-2">
-          {links.map((link) => {
-            const isActive = location.pathname === link.path;
-            return (
-              <button
-                key={link.path}
-                onClick={() => navigate(link.path)}
-                className={`w-full text-left px-5 py-3.5 rounded-xl font-label-md text-xs transition-all flex items-center gap-3 ${
-                  isActive 
-                    ? 'bg-primary text-white font-bold shadow-md shadow-primary/20' 
-                    : 'hover:bg-surface-container-high text-on-surface-variant'
-                }`}
-              >
-                <span className="material-symbols-outlined text-base">{link.icon}</span>
-                {link.label}
-              </button>
-            );
-          })}
-        </aside>
-
-        {/* Dynamic Inner Page Area */}
-        <main className="lg:col-span-3">
+      {/* Main Content Container (Consistent Full Width across Web & Mobile) */}
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 md:py-8 flex-grow w-full">
+        <main className="w-full">
           {children}
         </main>
-
       </div>
 
       {/* Mobile Bottom Navigation Bar (Phone / Tablet View) */}

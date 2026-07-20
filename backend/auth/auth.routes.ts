@@ -5,6 +5,7 @@ import {
   refresh,
   logout,
   me,
+  updateProfile,
   forgotPassword,
   resetPassword,
 } from './auth.controller.js';
@@ -19,7 +20,8 @@ router.post('/logout', logout);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 
-// Secure endpoint
+// Secure endpoints
 router.get('/me', authenticateToken as any, me as any);
+router.put('/profile', authenticateToken as any, updateProfile as any);
 
 export default router;

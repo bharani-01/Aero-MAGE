@@ -1,45 +1,65 @@
 import { prisma } from '../../config/database.js';
-// In-memory persistent store for Classroom Enrolled Members
-const roomMembersStore = {};
-// Helper: Seed default members for a classroom if empty
-function getOrSeedRoomMembers(roomId) {
-    if (!roomMembersStore[roomId]) {
-        roomMembersStore[roomId] = [
-            { id: 'm-seed-1', name: 'Alex Johnson', email: 'alex@school.edu', joinedAt: new Date(Date.now() - 86400000).toISOString() },
-            { id: 'm-seed-2', name: 'Sarah Miller', email: 'sarah@school.edu', joinedAt: new Date(Date.now() - 43200000).toISOString() },
-            { id: 'm-seed-3', name: 'David Smith', email: 'david@school.edu', joinedAt: new Date(Date.now() - 21600000).toISOString() }
-        ];
-    }
-    return roomMembersStore[roomId];
-}
-// 1. List Rooms Created by the particular Faculty user ONLY
+// 1. List Rooms Created by or Joined by the Faculty User
 export const listRooms = async (req, res) => {
     try {
         const userId = req.user.id;
-        // Filter by created_by: userId so faculty members see ONLY their own created classrooms
+        // Fetch rooms created by user OR where user is a room member
+        const memberships = await prisma.roomMember.findMany({
+            where: { user_id: userId },
+            select: { room_id: true }
+        });
+        const joinedRoomIds = memberships.map((m) => m.room_id);
         const rooms = await prisma.room.findMany({
             where: {
-                created_by: userId,
-                status: 'active'
+                OR: [
+                    { created_by: userId },
+                    { id: { in: joinedRoomIds } }
+                ]
             },
             include: {
                 creator: {
                     select: { id: true, display_name: true }
+                },
+                _count: {
+                    select: { members: true }
                 }
             },
             orderBy: { created_at: 'desc' }
         });
-        res.json({ success: true, data: rooms });
+        const data = rooms.map((r) => ({
+            ...r,
+            memberCount: r._count?.members || 1
+        }));
+        res.json({ success: true, data });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: { message: 'Failed to retrieve rooms list.' } });
+        res.status(500).json({ success: false, error: { message: error.message || 'Failed to retrieve rooms list.' } });
     }
 };
+// Helper to generate a 100% unique 6-character room access code
+async function generateUniqueRoomCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid ambiguous chars 0, O, 1, I
+    let code = '';
+    let isUnique = false;
+    let attempts = 0;
+    while (!isUnique && attempts < 30) {
+        attempts++;
+        code = '';
+        for (let i = 0; i < 6; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        const existing = await prisma.room.findUnique({ where: { room_code: code } });
+        if (!existing) {
+            isUnique = true;
+        }
+    }
+    return code;
+}
 // 2. Create a Room
 export const createRoom = async (req, res) => {
-    const { name, roomCode } = req.body;
-    if (!name || !roomCode) {
-        return res.status(400).json({ success: false, error: { message: 'Room name and code are required.' } });
+    const { name, roomCode, bannerUrl, roomMode } = req.body;
+    if (!name || !name.trim()) {
+        return res.status(400).json({ success: false, error: { message: 'Classroom name is required.' } });
     }
     try {
         const userId = req.user.id;
@@ -50,20 +70,41 @@ export const createRoom = async (req, res) => {
         if (!membership) {
             return res.status(403).json({ success: false, error: { message: 'You must belong to an organization to build rooms.' } });
         }
-        // Check if room code is unique
-        const existingRoom = await prisma.room.findUnique({
-            where: { room_code: roomCode.toUpperCase() }
-        });
-        if (existingRoom) {
-            return res.status(409).json({ success: false, error: { message: 'Room code already in use.' } });
+        // Auto-generate or verify unique room code
+        let finalCode = (roomCode || '').trim().toUpperCase();
+        if (!finalCode || finalCode.length < 4) {
+            finalCode = await generateUniqueRoomCode();
         }
+        else {
+            const existingRoom = await prisma.room.findUnique({
+                where: { room_code: finalCode }
+            });
+            if (existingRoom) {
+                finalCode = await generateUniqueRoomCode();
+            }
+        }
+        const defaultBanners = [
+            'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1200&auto=format&fit=crop',
+            'https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=1200&auto=format&fit=crop',
+            'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?q=80&w=1200&auto=format&fit=crop',
+            'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=1200&auto=format&fit=crop'
+        ];
+        const chosenBanner = bannerUrl || defaultBanners[Math.floor(Math.random() * defaultBanners.length)];
         const newRoom = await prisma.room.create({
             data: {
                 name,
-                room_code: roomCode.toUpperCase(),
+                room_code: finalCode,
                 organization_id: membership.organization_id,
-                status: 'active',
+                banner_url: chosenBanner,
+                status: roomMode || 'active',
                 created_by: userId
+            }
+        });
+        // Automatically enroll creator as first member
+        await prisma.roomMember.create({
+            data: {
+                room_id: newRoom.id,
+                user_id: userId
             }
         });
         res.status(201).json({ success: true, data: newRoom });
@@ -72,57 +113,228 @@ export const createRoom = async (req, res) => {
         res.status(500).json({ success: false, error: { message: error.message || 'Failed to create room.' } });
     }
 };
-// 3. Connect/Join Room via Access Code ONLY (Enrolls Student)
+// 3. Connect/Join Room via Access Code or Direct Join (Enforces All 5 Access Modes)
 export const joinRoom = async (req, res) => {
-    const { roomCode } = req.body;
-    if (!roomCode) {
-        return res.status(400).json({ success: false, error: { message: '6-digit classroom access code is required.' } });
-    }
+    const { roomCode, roomId } = req.body;
     try {
-        const room = await prisma.room.findUnique({
-            where: { room_code: roomCode.toUpperCase() },
-            include: {
-                organization: { select: { id: true, name: true } },
-                creator: { select: { id: true, display_name: true } }
-            }
-        });
-        if (!room || room.status !== 'active') {
-            return res.status(404).json({ success: false, error: { message: 'Classroom code invalid or room inactive.' } });
-        }
-        // Record student membership
-        const userObj = req.user;
-        const memberName = userObj?.displayName || userObj?.email?.split('@')[0] || 'Student';
-        const memberEmail = userObj?.email || 'student@school.edu';
-        const memberId = userObj?.id || `m-${Date.now()}`;
-        const members = getOrSeedRoomMembers(room.id);
-        const alreadyJoined = members.some((m) => m.id === memberId || m.email === memberEmail);
-        if (!alreadyJoined) {
-            members.push({
-                id: memberId,
-                name: memberName,
-                email: memberEmail,
-                joinedAt: new Date().toISOString()
+        let room = null;
+        if (roomId) {
+            room = await prisma.room.findUnique({
+                where: { id: roomId },
+                include: {
+                    organization: { select: { id: true, name: true } },
+                    creator: { select: { id: true, display_name: true } }
+                }
             });
         }
+        else if (roomCode) {
+            room = await prisma.room.findUnique({
+                where: { room_code: roomCode.toUpperCase() },
+                include: {
+                    organization: { select: { id: true, name: true } },
+                    creator: { select: { id: true, display_name: true } }
+                }
+            });
+        }
+        if (!room) {
+            return res.status(404).json({ success: false, error: { message: 'Classroom not found or code invalid.' } });
+        }
+        const userId = req.user.id;
+        // 1. Mode Enforcement: Archived
+        if (room.status === 'archived') {
+            return res.status(400).json({ success: false, error: { message: 'This classroom is archived and no longer accepting new enrollments.' } });
+        }
+        // 2. Mode Enforcement: Organization Members Only
+        if (room.status === 'org_only') {
+            const userOrg = await prisma.organizationMember.findFirst({
+                where: { user_id: userId, status: 'active' }
+            });
+            if (!userOrg || userOrg.organization_id !== room.organization_id) {
+                return res.status(403).json({ success: false, error: { message: `This course is restricted to members of ${room.organization?.name || 'its parent organization'}.` } });
+            }
+        }
+        // Determine Membership Status
+        const isApprovalMode = room.status === 'approval_required';
+        // Check existing membership
+        const existingMembership = await prisma.roomMember.findUnique({
+            where: { room_id_user_id: { room_id: room.id, user_id: userId } }
+        });
+        if (existingMembership) {
+            if (existingMembership.status === 'pending') {
+                return res.json({
+                    success: true,
+                    pending: true,
+                    message: 'Your request to join this classroom is pending faculty approval.',
+                    data: { id: room.id, name: room.name, room_code: room.room_code, status: 'pending' }
+                });
+            }
+            return res.json({
+                success: true,
+                message: `Already enrolled in ${room.name}.`,
+                data: { id: room.id, name: room.name, room_code: room.room_code, status: 'active' }
+            });
+        }
+        const targetStatus = isApprovalMode ? 'pending' : 'active';
+        // Create student membership record
+        const newMembership = await prisma.roomMember.create({
+            data: {
+                room_id: room.id,
+                user_id: userId,
+                status: targetStatus,
+                joined_at: new Date()
+            }
+        });
+        if (newMembership.status === 'pending') {
+            return res.json({
+                success: true,
+                pending: true,
+                message: 'Your join request has been submitted to the faculty instructor for approval.',
+                data: {
+                    id: room.id,
+                    name: room.name,
+                    code: room.room_code,
+                    status: 'pending'
+                }
+            });
+        }
+        const joinedRoomData = {
+            id: room.id,
+            name: room.name,
+            code: room.room_code,
+            organization: room.organization?.name || 'Institute',
+            creatorName: room.creator?.display_name || 'Faculty',
+            status: 'active'
+        };
         res.json({
             success: true,
-            message: `Successfully connected to classroom [${roomCode.toUpperCase()}].`,
-            room: {
-                id: room.id,
-                name: room.name,
-                code: room.room_code,
-                organization: room.organization.name,
-                creatorName: room.creator?.display_name || 'Faculty'
+            message: `Successfully connected to classroom [${room.room_code}].`,
+            data: joinedRoomData,
+            room: joinedRoomData
+        });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: { message: error.message || 'Failed to join classroom.' } });
+    }
+};
+// 3b. Get Student's Joined Classrooms List
+export const getJoinedRooms = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const memberships = await prisma.roomMember.findMany({
+            where: { user_id: userId },
+            include: {
+                room: {
+                    include: {
+                        creator: { select: { display_name: true } }
+                    }
+                }
+            },
+            orderBy: { joined_at: 'desc' }
+        });
+        const joinedRooms = memberships.map((m) => ({
+            id: m.room.id,
+            name: m.room.name,
+            room_code: m.room.room_code,
+            banner_url: m.room.banner_url,
+            status: m.room.status,
+            creatorName: m.room.creator?.display_name || 'Faculty',
+            joinedAt: m.joined_at
+        }));
+        res.json({ success: true, data: joinedRooms });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: { message: 'Failed to fetch joined classrooms.' } });
+    }
+};
+// 3c. Leave / Unenroll from Classroom
+export const leaveRoom = async (req, res) => {
+    const { roomId } = req.params;
+    const userId = req.user.id;
+    try {
+        await prisma.roomMember.delete({
+            where: {
+                room_id_user_id: { room_id: roomId, user_id: userId }
+            }
+        });
+        res.json({ success: true, message: 'Unenrolled from classroom successfully.' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: { message: 'Failed to unenroll from classroom.' } });
+    }
+};
+// 3d. Backend Search & Explore All Classrooms with Enrollment Verification & Pagination
+export const exploreRooms = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { q, page = '1', limit = '12', scope = 'enrolled' } = req.query;
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const limitNum = Math.max(1, parseInt(limit, 10) || 12);
+        const skip = (pageNum - 1) * limitNum;
+        const searchQuery = (q || '').trim();
+        // Get all user memberships to verify enrollment status
+        const userMemberships = await prisma.roomMember.findMany({
+            where: { user_id: userId },
+            select: { room_id: true }
+        });
+        const enrolledRoomIds = new Set(userMemberships.map((m) => m.room_id));
+        let whereClause = {};
+        if (scope === 'enrolled') {
+            whereClause.id = { in: Array.from(enrolledRoomIds) };
+        }
+        else {
+            // In Explore All Directory:
+            // Exclude 'code_only' (private code courses) and 'archived' courses!
+            whereClause.status = { in: ['public', 'org_only', 'approval_required', 'active'] };
+        }
+        if (searchQuery) {
+            whereClause.OR = [
+                { name: { contains: searchQuery, mode: 'insensitive' } },
+                { room_code: { contains: searchQuery, mode: 'insensitive' } },
+                { creator: { display_name: { contains: searchQuery, mode: 'insensitive' } } }
+            ];
+        }
+        const [total, rooms] = await Promise.all([
+            prisma.room.count({ where: whereClause }),
+            prisma.room.findMany({
+                where: whereClause,
+                include: {
+                    creator: { select: { display_name: true } },
+                    _count: { select: { members: true } }
+                },
+                orderBy: { created_at: 'desc' },
+                skip,
+                take: limitNum
+            })
+        ]);
+        const mappedRooms = rooms.map((r) => ({
+            id: r.id,
+            name: r.name,
+            room_code: r.room_code,
+            banner_url: r.banner_url,
+            status: r.status,
+            creatorName: r.creator?.display_name || 'Faculty',
+            memberCount: r._count?.members || 0,
+            isEnrolled: enrolledRoomIds.has(r.id)
+        }));
+        res.json({
+            success: true,
+            data: mappedRooms,
+            pagination: {
+                total,
+                page: pageNum,
+                limit: limitNum,
+                totalPages: Math.ceil(total / limitNum) || 1
             }
         });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: { message: 'Failed to join classroom.' } });
+        res.status(500).json({ success: false, error: { message: error.message || 'Failed to search classrooms.' } });
     }
 };
-// 4. Get Classroom Stream Feed from DB (Announcements + Attached Quizzes + Comments)
+// 4. Get Classroom Stream Feed from DB
 export const getRoomFeed = async (req, res) => {
     const { roomId } = req.params;
+    const userId = req.user.id;
     try {
         const room = await prisma.room.findUnique({
             where: { id: roomId },
@@ -131,7 +343,17 @@ export const getRoomFeed = async (req, res) => {
         if (!room) {
             return res.status(404).json({ success: false, error: { message: 'Classroom not found.' } });
         }
-        // Fetch posts & comments directly from Database
+        // Check if student's join request is pending approval
+        const membership = await prisma.roomMember.findUnique({
+            where: { room_id_user_id: { room_id: roomId, user_id: userId } }
+        });
+        if (membership && membership.status === 'pending' && room.created_by !== userId) {
+            return res.status(403).json({
+                success: false,
+                pending: true,
+                error: { message: 'Your join request for this classroom is pending faculty approval.' }
+            });
+        }
         const dbPosts = await prisma.roomPost.findMany({
             where: { room_id: roomId },
             include: {
@@ -183,7 +405,7 @@ export const getRoomFeed = async (req, res) => {
         res.status(500).json({ success: false, error: { message: 'Failed to fetch classroom stream.' } });
     }
 };
-// 5. Post Announcement / Attach Quiz to Classroom Stream (Persisted in DB)
+// 5. Post Announcement / Attach Quiz to Classroom Stream
 export const createRoomPost = async (req, res) => {
     const { roomId } = req.params;
     const { content, quizId } = req.body;
@@ -225,7 +447,7 @@ export const createRoomPost = async (req, res) => {
         res.status(500).json({ success: false, error: { message: error.message || 'Failed to publish post to classroom stream.' } });
     }
 };
-// 6. Add Comment / Reply to Classroom Post (Persisted in DB)
+// 6. Add Comment / Reply to Classroom Post
 export const addPostComment = async (req, res) => {
     const { roomId, postId } = req.params;
     const { text } = req.body;
@@ -254,22 +476,398 @@ export const addPostComment = async (req, res) => {
         res.status(500).json({ success: false, error: { message: 'Failed to post comment.' } });
     }
 };
-// 7. Get Classroom Enrolled Members List
+// 7. Get Classroom Enrolled Members List (From DB room_member table)
 export const getRoomMembers = async (req, res) => {
     const { roomId } = req.params;
-    const members = getOrSeedRoomMembers(roomId);
-    res.json({ success: true, data: members });
+    try {
+        const members = await prisma.roomMember.findMany({
+            where: { room_id: roomId },
+            include: {
+                user: {
+                    select: { id: true, display_name: true, email: true }
+                }
+            },
+            orderBy: { joined_at: 'desc' }
+        });
+        const mapped = members.map((m) => ({
+            id: m.user.id,
+            name: m.user.display_name || m.user.email.split('@')[0],
+            email: m.user.email,
+            joinedAt: m.joined_at
+        }));
+        res.json({ success: true, data: mapped });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: { message: 'Failed to fetch classroom members.' } });
+    }
 };
 // 8. Remove Student Member from Classroom (Faculty Only)
 export const removeRoomMember = async (req, res) => {
     const { roomId, memberId } = req.params;
-    const members = getOrSeedRoomMembers(roomId);
-    const index = members.findIndex((m) => m.id === memberId);
-    if (index !== -1) {
-        const removed = members.splice(index, 1);
-        res.json({ success: true, message: 'Student member removed from classroom.', removed: removed[0] });
+    try {
+        await prisma.roomMember.delete({
+            where: {
+                room_id_user_id: { room_id: roomId, user_id: memberId }
+            }
+        });
+        res.json({ success: true, message: 'Student member removed from classroom.' });
     }
-    else {
-        res.status(404).json({ success: false, error: { message: 'Member not found.' } });
+    catch (error) {
+        res.status(500).json({ success: false, error: { message: 'Member not found or already removed.' } });
+    }
+};
+// 9. Create Classroom Assignment (Faculty Only)
+export const createAssignment = async (req, res) => {
+    const { roomId } = req.params;
+    const { quizId, title, instructions, dueDate, totalPoints, maxAttempts, timeLimitMinutes, showAnswers } = req.body;
+    if (!quizId || !title) {
+        return res.status(400).json({ success: false, error: { message: 'Quiz ID and title are required for assignment.' } });
+    }
+    try {
+        const quiz = await prisma.quiz.findUnique({ where: { id: quizId } });
+        if (!quiz) {
+            return res.status(404).json({ success: false, error: { message: 'Quiz not found.' } });
+        }
+        const newAssignment = await prisma.classroomAssignment.create({
+            data: {
+                room_id: roomId,
+                quiz_id: quizId,
+                title,
+                instructions: instructions || null,
+                due_date: dueDate ? new Date(dueDate) : null,
+                total_points: totalPoints || quiz.total_points || 100,
+                max_attempts: maxAttempts !== undefined ? Number(maxAttempts) : 1,
+                time_limit_minutes: timeLimitMinutes ? Number(timeLimitMinutes) : null,
+                show_answers: showAnswers !== false
+            },
+            include: { quiz: true }
+        });
+        const userObj = req.user;
+        const authorName = userObj?.displayName || 'Faculty';
+        await prisma.roomPost.create({
+            data: {
+                room_id: roomId,
+                author_name: authorName,
+                author_role: 'Faculty',
+                content: `📋 Assignment Posted: "${title}". Due: ${dueDate ? new Date(dueDate).toLocaleDateString() : 'No Due Date'} (${maxAttempts === 1 ? 'Single Attempt' : 'Multiple Attempts'})`,
+                quiz_id: quizId
+            }
+        });
+        res.status(201).json({ success: true, data: newAssignment });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: { message: error.message || 'Failed to create assignment.' } });
+    }
+};
+// 10. Get Classroom Assignments List
+export const getRoomAssignments = async (req, res) => {
+    const { roomId } = req.params;
+    const userId = req.user.id;
+    try {
+        const assignments = await prisma.classroomAssignment.findMany({
+            where: { room_id: roomId },
+            include: {
+                quiz: {
+                    select: {
+                        id: true,
+                        title: true,
+                        question_count: true,
+                        difficulty: true,
+                        cover_image_url: true
+                    }
+                },
+                submissions: {
+                    where: { user_id: userId }
+                }
+            },
+            orderBy: { created_at: 'desc' }
+        });
+        const mapped = assignments.map((a) => ({
+            id: a.id,
+            roomId: a.room_id,
+            quizId: a.quiz_id,
+            title: a.title,
+            instructions: a.instructions,
+            dueDate: a.due_date,
+            totalPoints: a.total_points,
+            maxAttempts: a.max_attempts,
+            timeLimitMinutes: a.time_limit_minutes,
+            showAnswers: a.show_answers,
+            createdAt: a.created_at,
+            quiz: a.quiz,
+            userSubmission: a.submissions.length > 0 ? a.submissions[0] : null
+        }));
+        res.json({ success: true, data: mapped });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: { message: 'Failed to fetch assignments.' } });
+    }
+};
+// 11. Submit Assignment (Student)
+export const submitAssignment = async (req, res) => {
+    const { roomId, assignmentId } = req.params;
+    const { score, totalPoints, timeTakenSeconds } = req.body;
+    const userId = req.user.id;
+    const userObj = req.user;
+    try {
+        const assignment = await prisma.classroomAssignment.findUnique({
+            where: { id: assignmentId },
+            include: { submissions: { where: { user_id: userId } } }
+        });
+        if (!assignment) {
+            return res.status(404).json({ success: false, error: { message: 'Assignment not found.' } });
+        }
+        if (assignment.max_attempts > 0 && assignment.submissions.length >= assignment.max_attempts) {
+            return res.status(403).json({ success: false, error: { message: `Maximum attempts (${assignment.max_attempts}) reached for this assignment.` } });
+        }
+        const studentName = userObj?.displayName || userObj?.email?.split('@')[0] || 'Student';
+        const total = totalPoints || assignment.total_points || 100;
+        const achievedScore = score || 0;
+        const percentage = Math.round((achievedScore / total) * 100 * 10) / 10;
+        const submission = await prisma.assignmentSubmission.upsert({
+            where: {
+                assignment_id_user_id: { assignment_id: assignmentId, user_id: userId }
+            },
+            update: {
+                score: achievedScore,
+                total_points: total,
+                percentage,
+                time_taken_seconds: timeTakenSeconds || 0,
+                status: 'submitted',
+                submitted_at: new Date()
+            },
+            create: {
+                assignment_id: assignmentId,
+                user_id: userId,
+                student_name: studentName,
+                score: achievedScore,
+                total_points: total,
+                percentage,
+                time_taken_seconds: timeTakenSeconds || 0,
+                status: 'submitted'
+            }
+        });
+        // Also record general quiz attempt for progress reports!
+        await prisma.quizAttempt.create({
+            data: {
+                quiz_id: assignment.quiz_id,
+                user_id: userId,
+                student_name: studentName,
+                score: achievedScore,
+                total_points: total,
+                percentage,
+                time_taken_seconds: timeTakenSeconds || 0,
+                completed_at: new Date()
+            }
+        });
+        res.json({ success: true, data: submission, message: 'Assignment submitted successfully.' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: { message: error.message || 'Failed to submit assignment.' } });
+    }
+};
+// 12. Get Assignment Analytics & Student Submission Marks Report (Faculty Only)
+export const getAssignmentAnalytics = async (req, res) => {
+    const { roomId, assignmentId } = req.params;
+    try {
+        const assignment = await prisma.classroomAssignment.findUnique({
+            where: { id: assignmentId },
+            include: {
+                quiz: true,
+                submissions: {
+                    include: {
+                        user: { select: { email: true, display_name: true } }
+                    },
+                    orderBy: { submitted_at: 'desc' }
+                }
+            }
+        });
+        if (!assignment) {
+            return res.status(404).json({ success: false, error: { message: 'Assignment not found.' } });
+        }
+        const roomMembers = await prisma.roomMember.findMany({
+            where: { room_id: roomId },
+            include: { user: { select: { id: true, display_name: true, email: true } } }
+        });
+        const enrolledMembers = roomMembers.map((m) => ({
+            id: m.user.id,
+            name: m.user.display_name || m.user.email.split('@')[0],
+            email: m.user.email
+        }));
+        const submissionsMap = new Map(assignment.submissions.map((s) => [s.user_id, s]));
+        // Combine actual joined students and submitters
+        const combinedStudentsMap = new Map();
+        enrolledMembers.forEach((m) => {
+            combinedStudentsMap.set(m.id, { id: m.id, name: m.name, email: m.email });
+        });
+        assignment.submissions.forEach((sub) => {
+            if (!combinedStudentsMap.has(sub.user_id)) {
+                combinedStudentsMap.set(sub.user_id, {
+                    id: sub.user_id,
+                    name: sub.student_name,
+                    email: sub.user?.email || 'student@school.edu'
+                });
+            }
+        });
+        const studentList = Array.from(combinedStudentsMap.values());
+        const studentReport = studentList.map((member) => {
+            const sub = submissionsMap.get(member.id) || assignment.submissions.find((s) => s.student_name.toLowerCase() === member.name.toLowerCase());
+            return {
+                studentId: member.id,
+                studentName: member.name,
+                studentEmail: member.email,
+                status: sub ? 'Turned In' : 'Missing',
+                score: sub ? sub.score : 0,
+                totalPoints: assignment.total_points,
+                percentage: sub ? sub.percentage : 0,
+                timeTakenSeconds: sub ? sub.time_taken_seconds : 0,
+                submittedAt: sub ? sub.submitted_at : null
+            };
+        });
+        const turnedInCount = studentReport.filter((r) => r.status === 'Turned In').length;
+        const avgScore = turnedInCount > 0
+            ? Math.round(studentReport.filter((r) => r.status === 'Turned In').reduce((sum, r) => sum + r.score, 0) / turnedInCount)
+            : 0;
+        res.json({
+            success: true,
+            data: {
+                assignment,
+                stats: {
+                    totalAssigned: studentReport.length,
+                    turnedInCount,
+                    missingCount: studentReport.length - turnedInCount,
+                    avgScore
+                },
+                studentReport
+            }
+        });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: { message: 'Failed to fetch assignment analytics.' } });
+    }
+};
+// 7. Get Pending Join Requests for Classroom (Faculty / Instructor)
+export const getPendingRequests = async (req, res) => {
+    const { roomId } = req.params;
+    try {
+        const pendingMembers = await prisma.roomMember.findMany({
+            where: { room_id: roomId, status: 'pending' },
+            include: {
+                user: { select: { id: true, display_name: true, email: true, avatar_url: true } }
+            },
+            orderBy: { joined_at: 'desc' }
+        });
+        const data = pendingMembers.map((m) => ({
+            id: m.id,
+            userId: m.user_id,
+            name: m.user.display_name,
+            email: m.user.email,
+            avatarUrl: m.user.avatar_url,
+            requestedAt: m.joined_at
+        }));
+        res.json({ success: true, data });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: { message: 'Failed to fetch pending requests.' } });
+    }
+};
+// 8. Approve Pending Join Request
+export const approveRoomRequest = async (req, res) => {
+    const { requestId } = req.params;
+    try {
+        await prisma.roomMember.update({
+            where: { id: requestId },
+            data: { status: 'active' }
+        });
+        res.json({ success: true, message: 'Student join request approved successfully.' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: { message: 'Failed to approve join request.' } });
+    }
+};
+// 9. Reject Pending Join Request
+export const rejectRoomRequest = async (req, res) => {
+    const { requestId } = req.params;
+    try {
+        await prisma.roomMember.delete({
+            where: { id: requestId }
+        });
+        res.json({ success: true, message: 'Student join request rejected.' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: { message: 'Failed to reject join request.' } });
+    }
+};
+// 10. Update Classroom Details & Access Policy (Faculty / Instructor)
+export const updateRoom = async (req, res) => {
+    const { roomId } = req.params;
+    const { name, roomMode, bannerUrl } = req.body;
+    const userId = req.user.id;
+    try {
+        const room = await prisma.room.findUnique({ where: { id: roomId } });
+        if (!room) {
+            return res.status(404).json({ success: false, error: { message: 'Classroom not found.' } });
+        }
+        if (room.created_by !== userId) {
+            return res.status(403).json({ success: false, error: { message: 'Only the classroom creator can modify course settings.' } });
+        }
+        const updatedRoom = await prisma.room.update({
+            where: { id: roomId },
+            data: {
+                name: name !== undefined ? name.trim() : room.name,
+                status: roomMode !== undefined ? roomMode : room.status,
+                banner_url: bannerUrl !== undefined ? bannerUrl : room.banner_url,
+                updated_at: new Date()
+            }
+        });
+        res.json({ success: true, message: 'Classroom details updated successfully.', data: updatedRoom });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: { message: error.message || 'Failed to update classroom.' } });
+    }
+};
+// 11. Transfer Classroom Ownership
+export const transferRoomOwnership = async (req, res) => {
+    const { roomId } = req.params;
+    const { newOwnerUserId } = req.body;
+    const userId = req.user.id;
+    if (!newOwnerUserId) {
+        return res.status(400).json({ success: false, error: { message: 'New owner User ID is required.' } });
+    }
+    try {
+        const room = await prisma.room.findUnique({ where: { id: roomId } });
+        if (!room) {
+            return res.status(404).json({ success: false, error: { message: 'Classroom not found.' } });
+        }
+        if (room.created_by !== userId) {
+            return res.status(403).json({ success: false, error: { message: 'Only the current classroom owner can transfer ownership.' } });
+        }
+        const updatedRoom = await prisma.room.update({
+            where: { id: roomId },
+            data: { created_by: newOwnerUserId, updated_at: new Date() }
+        });
+        res.json({ success: true, message: 'Classroom ownership transferred successfully.', data: updatedRoom });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: { message: error.message || 'Failed to transfer ownership.' } });
+    }
+};
+// 12. Delete Classroom Permanently
+export const deleteRoom = async (req, res) => {
+    const { roomId } = req.params;
+    const userId = req.user.id;
+    try {
+        const room = await prisma.room.findUnique({ where: { id: roomId } });
+        if (!room) {
+            return res.status(404).json({ success: false, error: { message: 'Classroom not found.' } });
+        }
+        if (room.created_by !== userId) {
+            return res.status(403).json({ success: false, error: { message: 'Only the classroom creator can delete this course.' } });
+        }
+        await prisma.room.delete({ where: { id: roomId } });
+        res.json({ success: true, message: 'Classroom deleted permanently.' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, error: { message: error.message || 'Failed to delete classroom.' } });
     }
 };

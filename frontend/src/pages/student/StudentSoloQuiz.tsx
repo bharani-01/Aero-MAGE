@@ -1,14 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 
 export default function StudentSoloQuiz() {
   const { quizId } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   const [quiz, setQuiz] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Attempt Policy State
+  const [assignmentInfo, setAssignmentInfo] = useState<any | null>(null);
+  const [attemptBlocked, setAttemptBlocked] = useState(false);
+  const [blockedReason, setBlockedReason] = useState('');
+  const [previousSub, setPreviousSub] = useState<any | null>(null);
 
   // Quiz progression state
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -29,8 +37,6 @@ export default function StudentSoloQuiz() {
   // Timer & Grace state
   const [countdown, setCountdown] = useState<number | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [mediaEnded, setMediaEnded] = useState(false);
-  const [graceCountdown, setGraceCountdown] = useState<number | null>(null);
   const graceRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Quiz summary state
@@ -40,7 +46,40 @@ export default function StudentSoloQuiz() {
 
   useEffect(() => {
     fetchQuizDetails();
+    checkAttemptPolicy();
   }, [quizId]);
+
+  const checkAttemptPolicy = async () => {
+    const locState = (location.state as any) || {};
+    const assignmentId = locState.assignmentId || searchParams.get('assignmentId');
+    const targetRoomId = locState.roomId || searchParams.get('roomId');
+    const token = localStorage.getItem('accessToken');
+
+    if (assignmentId && targetRoomId && token) {
+      try {
+        const res = await fetch(`/api/rooms/${targetRoomId}/assignments`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const json = await res.json();
+        if (json.success && json.data) {
+          const currentAssignment = json.data.find((a: any) => a.id === assignmentId);
+          if (currentAssignment) {
+            setAssignmentInfo(currentAssignment);
+            const maxAttempts = currentAssignment.maxAttempts !== undefined ? currentAssignment.maxAttempts : 1;
+            const sub = currentAssignment.userSubmission;
+
+            if (sub && maxAttempts > 0) {
+              setAttemptBlocked(true);
+              setPreviousSub(sub);
+              setBlockedReason(`This classroom assignment is governed by a Single Attempt Policy (${maxAttempts} max attempt). You have already turned in your work.`);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error checking assignment attempt policy:', err);
+      }
+    }
+  };
 
   const fetchQuizDetails = async () => {
     setLoading(true);
@@ -83,125 +122,156 @@ export default function StudentSoloQuiz() {
     setOrderedItems(parseOptions(currentQ));
     setMatchSelections({});
     setQuestionSubmitted(false);
-    setMediaEnded(false);
-    setGraceCountdown(null);
 
-    if (graceRef.current) clearInterval(graceRef.current);
+    // Initialize Question Timer if present
     if (countdownRef.current) clearInterval(countdownRef.current);
+    if (graceRef.current) clearInterval(graceRef.current);
 
-    const tl = currentQ.time_limit ?? 30;
-    if (tl > 0) {
-      setCountdown(tl);
+    const timeLimit = currentQ.time_limit ?? 30;
+    if (timeLimit > 0) {
+      setCountdown(timeLimit);
       countdownRef.current = setInterval(() => {
         setCountdown(prev => {
           if (prev === null || prev <= 1) {
-            if (countdownRef.current) clearInterval(countdownRef.current);
-            // Auto submit empty when timeout
-            handleAnswerSubmit('');
+            clearInterval(countdownRef.current!);
+            handleTimeUp();
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
     } else {
-      setCountdown(null); // No Limit mode
+      setCountdown(null);
     }
 
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current);
       if (graceRef.current) clearInterval(graceRef.current);
     };
-  }, [currentIdx, currentQ?.id]);
+  }, [currentIdx, questions]);
 
-  function parseOptions(q: any): string[] {
-    try {
-      return typeof q.options_json === 'string' ? JSON.parse(q.options_json) : (q.options_json || []);
-    } catch { return []; }
-  }
-
-  // Grace countdown for Audio/Video questions
-  const startGracePeriod = () => {
-    if (graceRef.current) clearInterval(graceRef.current);
-    const grace = currentQ?.grace_time ?? 15;
-    if (grace <= 0 || questionSubmitted) return;
-
-    setGraceCountdown(grace);
-    graceRef.current = setInterval(() => {
-      setGraceCountdown(prev => {
-        if (prev === null || prev <= 1) {
-          if (graceRef.current) clearInterval(graceRef.current);
-          if (!questionSubmitted) {
-            handleAnswerSubmit(selectedOption || typedAnswer || selectedOptions.join(',') || '');
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+  const handleTimeUp = () => {
+    setQuestionSubmitted(true);
   };
 
-  const handleMediaEnded = () => {
-    setMediaEnded(true);
-    startGracePeriod();
-  };
-
-  // Grade an answer locally for immediate feedback
-  const gradeLocalAnswer = (q: any, rawAns: string): { isCorrect: boolean; points: number } => {
-    const maxPts = q.points || 10;
-    const qType = q.question_type || 'multiple_choice';
-    const correctStr = String(q.correct_answer || '').trim();
-
-    let isCorrect = false;
-
-    if (['multiple_choice', 'true_false', 'audio_mcq', 'video_mcq', 'image_choice'].includes(qType)) {
-      isCorrect = rawAns.trim() === correctStr;
-    } else if (['short_answer', 'fill_blank'].includes(qType)) {
-      isCorrect = rawAns.trim().toLowerCase() === correctStr.toLowerCase();
-    } else if (qType === 'multi_select') {
-      const sub = rawAns.split(',').map(s => s.trim()).filter(Boolean).sort().join(',');
-      const corr = correctStr.split(',').map(s => s.trim()).filter(Boolean).sort().join(',');
-      isCorrect = sub === corr;
-    } else if (qType === 'ordering') {
-      const sub = rawAns.split('|').map(s => s.trim()).join('|');
-      isCorrect = sub === correctStr.split('|').map(s => s.trim()).join('|');
-    } else if (qType === 'match_following') {
-      const norm = (s: string) => s.split(',').map(p => p.trim()).sort().join(',');
-      isCorrect = norm(rawAns) === norm(correctStr);
+  const parseOptions = (q: any): string[] => {
+    if (!q) return [];
+    if (Array.isArray(q.options)) return q.options;
+    if (typeof q.options_json === 'string') {
+      try { return JSON.parse(q.options_json); } catch {}
     }
-
-    return {
-      isCorrect,
-      points: isCorrect ? maxPts : 0
-    };
+    return [];
   };
 
-  const handleAnswerSubmit = (ansToSubmit: string) => {
-    if (questionSubmitted || !currentQ) return;
-
+  const handleConfirmAnswer = () => {
+    if (!currentQ || questionSubmitted) return;
+    setQuestionSubmitted(true);
     if (countdownRef.current) clearInterval(countdownRef.current);
     if (graceRef.current) clearInterval(graceRef.current);
 
-    setQuestionSubmitted(true);
+    let isCorrect = false;
+    let rawAnswer = '';
+    const points = currentQ.points || 10;
 
-    const { isCorrect, points } = gradeLocalAnswer(currentQ, ansToSubmit);
+    const qType = currentQ.question_type || 'multiple_choice';
+
+    if (qType === 'multiple_choice' || qType === 'true_false' || qType === 'audio_mcq' || qType === 'video_mcq') {
+      rawAnswer = selectedOption || '';
+      isCorrect = (selectedOption?.trim().toLowerCase() === String(currentQ.correct_answer || '').trim().toLowerCase());
+    } else if (qType === 'multi_select') {
+      rawAnswer = selectedOptions.join(', ');
+      let correctArr: string[] = [];
+      try { correctArr = JSON.parse(currentQ.correct_answer || '[]'); } catch { correctArr = [currentQ.correct_answer]; }
+      const sortedSelected = [...selectedOptions].sort();
+      const sortedCorrect = [...correctArr].sort();
+      isCorrect = JSON.stringify(sortedSelected) === JSON.stringify(sortedCorrect);
+    } else if (qType === 'short_answer' || qType === 'fill_blank') {
+      rawAnswer = typedAnswer.trim();
+      isCorrect = (typedAnswer.trim().toLowerCase() === String(currentQ.correct_answer || '').trim().toLowerCase());
+    } else if (qType === 'ordering') {
+      rawAnswer = orderedItems.join(' -> ');
+      let correctOrder: string[] = [];
+      try { correctOrder = JSON.parse(currentQ.correct_answer || '[]'); } catch {}
+      isCorrect = JSON.stringify(orderedItems) === JSON.stringify(correctOrder);
+    } else if (qType === 'match_following') {
+      rawAnswer = JSON.stringify(matchSelections);
+      let correctPairs: Record<string, string> = {};
+      try { correctPairs = JSON.parse(currentQ.correct_answer || '{}'); } catch {}
+      let allMatch = true;
+      Object.keys(correctPairs).forEach(key => {
+        if (matchSelections[key] !== correctPairs[key]) allMatch = false;
+      });
+      isCorrect = allMatch;
+    }
 
     setUserAnswers(prev => ({
       ...prev,
       [currentIdx]: {
-        rawAnswer: ansToSubmit,
+        rawAnswer,
         isCorrect,
-        pointsEarned: points
+        pointsEarned: isCorrect ? points : 0
       }
     }));
 
-    setTotalScore(prev => prev + points);
+    if (isCorrect) {
+      setTotalScore(prev => prev + points);
+    }
   };
 
   const handleNextQuestion = () => {
     if (currentIdx + 1 < questions.length) {
       setCurrentIdx(prev => prev + 1);
     } else {
-      setQuizFinished(true);
+      finishAndSaveAttempt();
+    }
+  };
+
+  const finishAndSaveAttempt = async () => {
+    setQuizFinished(true);
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+
+    const locState = (location.state as any) || {};
+    const assignmentId = locState.assignmentId || searchParams.get('assignmentId');
+    const targetRoomId = locState.roomId || searchParams.get('roomId');
+
+    // 1. Record general quiz attempt in DB
+    try {
+      await fetch(`/api/quizzes/${quizId}/attempt`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          score: totalScore,
+          totalPoints: totalPossiblePoints,
+          timeTakenSeconds: 45,
+          answers: userAnswers
+        })
+      });
+    } catch (err) {
+      console.error('Failed to save quiz attempt result:', err);
+    }
+
+    // 2. IF classroom assignment, record assignment submission in DB
+    if (assignmentId && targetRoomId) {
+      try {
+        await fetch(`/api/rooms/${targetRoomId}/assignments/${assignmentId}/submit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            score: totalScore,
+            totalPoints: totalPossiblePoints,
+            timeTakenSeconds: 45
+          })
+        });
+      } catch (err) {
+        console.error('Failed to submit classroom assignment:', err);
+      }
     }
   };
 
@@ -210,7 +280,67 @@ export default function StudentSoloQuiz() {
     setUserAnswers({});
     setTotalScore(0);
     setQuizFinished(false);
+    setSelectedOption(null);
+    setSelectedOptions([]);
+    setTypedAnswer('');
+    setMatchSelections({});
+    setQuestionSubmitted(false);
   };
+
+  // ── ATTEMPT BLOCKED VIEW ──────────────────────────────────────────────────
+
+  if (attemptBlocked && previousSub) {
+    return (
+      <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-6">
+        <div className="bg-white border border-outline-variant rounded-3xl p-8 max-w-md w-full text-center shadow-xl flex flex-col items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center">
+            <span className="material-symbols-outlined text-3xl">lock</span>
+          </div>
+          <h2 className="text-headline-sm font-extrabold text-on-surface">Maximum Attempts Reached</h2>
+          <p className="text-xs text-on-surface-variant leading-relaxed">
+            {blockedReason}
+          </p>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 w-full flex flex-col gap-1.5 text-xs">
+            <span className="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider">Your Turned In Result</span>
+            <div className="flex justify-between items-center text-on-surface font-bold pt-1">
+              <span>Marks Achieved:</span>
+              <strong className="text-sm text-primary">{previousSub.score} / {previousSub.total_points || assignmentInfo?.totalPoints || 100}</strong>
+            </div>
+            <div className="flex justify-between items-center text-on-surface font-bold">
+              <span>Percentage:</span>
+              <strong className="text-sm text-green-700">{previousSub.percentage}%</strong>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              const locState = (location.state as any) || {};
+              const targetRoomId = locState.roomId || searchParams.get('roomId');
+              if (targetRoomId) {
+                navigate(`/classroom/${targetRoomId}`);
+                return;
+              }
+              let role = 'student';
+              try {
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                  const u = JSON.parse(userStr);
+                  const r = (u.role || u.role_name || '').toLowerCase();
+                  if (r.includes('faculty') || r.includes('teacher')) role = 'faculty';
+                }
+              } catch {}
+              if (role === 'faculty') navigate('/faculty/quizzes');
+              else navigate('/student/dashboard');
+            }}
+            className="w-full bg-primary text-white font-bold py-3 rounded-xl text-xs shadow hover:bg-primary/90 transition active:scale-95 mt-2"
+          >
+            Return to Classroom Stream
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ── Loading / Error ────────────────────────────────────────────────────────
 
@@ -247,6 +377,7 @@ export default function StudentSoloQuiz() {
   if (quizFinished) {
     const accuracy = totalPossiblePoints > 0 ? Math.round((totalScore / totalPossiblePoints) * 100) : 0;
     const correctCount = Object.values(userAnswers).filter(a => a.isCorrect).length;
+    const isSingleAttemptAssignment = Boolean(assignmentInfo && (assignmentInfo.maxAttempts === 1 || assignmentInfo.maxAttempts > 0));
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-primary/10 via-surface to-surface flex flex-col items-center justify-center p-4 md:p-8">
@@ -260,10 +391,12 @@ export default function StudentSoloQuiz() {
 
           <div>
             <span className="bg-primary/10 text-primary font-extrabold text-xs px-4 py-1.5 rounded-full border border-primary/20 uppercase tracking-wider">
-              Solo Quiz Completed
+              {isSingleAttemptAssignment ? 'Classroom Assignment Submitted' : 'Solo Quiz Completed'}
             </span>
             <h1 className="text-headline-lg font-extrabold text-on-surface mt-2">{quiz.title}</h1>
-            <p className="text-body-md text-on-surface-variant mt-1">Here is your self-paced performance summary!</p>
+            <p className="text-body-md text-on-surface-variant mt-1">
+              {isSingleAttemptAssignment ? 'Your marks and submission have been recorded!' : 'Here is your self-paced performance summary!'}
+            </p>
           </div>
 
           {/* Stat Cards Grid */}
@@ -307,20 +440,45 @@ export default function StudentSoloQuiz() {
 
           {/* Action buttons */}
           <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-            <button
-              onClick={handleRestartQuiz}
-              className="bg-secondary-container text-on-secondary-container font-bold px-6 py-3.5 rounded-xl hover:bg-secondary-container/80 transition text-label-md flex items-center justify-center gap-2"
-            >
-              <span className="material-symbols-outlined text-sm">refresh</span>
-              Retake Quiz
-            </button>
+            {!isSingleAttemptAssignment ? (
+              <button
+                onClick={handleRestartQuiz}
+                className="bg-secondary-container text-on-secondary-container font-bold px-6 py-3.5 rounded-xl hover:bg-secondary-container/80 transition text-label-md flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined text-sm">refresh</span>
+                Retake Quiz
+              </button>
+            ) : (
+              <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 px-4 py-3 rounded-xl flex items-center gap-1.5 font-bold">
+                <span className="material-symbols-outlined text-sm">info</span>
+                Single Attempt Policy: Retaking is restricted for this assignment.
+              </div>
+            )}
 
             <button
-              onClick={() => navigate('/student/dashboard')}
+              onClick={() => {
+                const locState = (location.state as any) || {};
+                const targetRoomId = locState.roomId || searchParams.get('roomId');
+                if (targetRoomId) {
+                  navigate(`/classroom/${targetRoomId}`);
+                  return;
+                }
+                let role = 'student';
+                try {
+                  const userStr = localStorage.getItem('user');
+                  if (userStr) {
+                    const u = JSON.parse(userStr);
+                    const r = (u.role || u.role_name || '').toLowerCase();
+                    if (r.includes('faculty') || r.includes('teacher')) role = 'faculty';
+                  }
+                } catch {}
+                if (role === 'faculty') navigate('/faculty/quizzes');
+                else navigate('/student/dashboard');
+              }}
               className="bg-primary text-white font-bold px-8 py-3.5 rounded-xl hover:bg-primary/90 transition shadow-lg text-label-md flex items-center justify-center gap-2"
             >
-              <span className="material-symbols-outlined text-sm">dashboard</span>
-              Back to Dashboard
+              <span className="material-symbols-outlined text-sm">arrow_back</span>
+              {searchParams.get('roomId') || (location.state as any)?.roomId ? 'Return to Classroom Stream' : 'Back to Dashboard'}
             </button>
           </div>
 
@@ -329,437 +487,143 @@ export default function StudentSoloQuiz() {
     );
   }
 
-  // ── ACTIVE QUESTION SCREEN ─────────────────────────────────────────────────
-
-  const activeUserAnswer = userAnswers[currentIdx];
-
+  // ── ACTIVE QUESTION VIEW ──
   return (
-    <div className="min-h-screen bg-surface flex flex-col p-4 md:p-8 max-w-4xl mx-auto w-full">
+    <div className="min-h-screen bg-surface flex flex-col justify-between p-4 md:p-8 max-w-4xl mx-auto">
       
-      {/* Header Bar */}
-      <div className="bg-white border border-outline-variant rounded-2xl p-4 md:p-6 shadow-sm flex justify-between items-center mb-6">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/student/dashboard')}
-            className="text-xs font-semibold text-on-surface-variant hover:text-primary transition border border-outline rounded-xl px-3 py-1.5 flex items-center gap-1"
-          >
-            <span className="material-symbols-outlined text-sm">arrow_back</span>
-            Exit
-          </button>
-          <div>
-            <span className="text-[10px] font-bold text-primary uppercase tracking-wider block">Self-Paced Practice</span>
-            <h2 className="text-headline-sm font-bold text-on-surface truncate max-w-xs md:max-w-md">{quiz.title}</h2>
+      {/* Quiz Header Bar */}
+      <div className="flex justify-between items-center bg-white border border-outline-variant rounded-2xl p-4 shadow-sm">
+        <div>
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-primary">
+            Question {currentIdx + 1} of {questions.length}
+          </span>
+          <h2 className="text-body-lg font-bold text-on-surface">{quiz.title}</h2>
+        </div>
+
+        {/* Question Timer */}
+        {!noTimer && countdown !== null && (
+          <div className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-sm ${
+            countdown <= 5 ? 'bg-red-500 text-white animate-bounce' : 'bg-primary/10 text-primary'
+          }`}>
+            <span className="material-symbols-outlined text-base">timer</span>
+            <span>{countdown}s</span>
           </div>
-        </div>
-
-        <div className="bg-primary/10 text-primary border border-primary/20 px-4 py-2 rounded-xl text-center">
-          <span className="text-[10px] font-bold uppercase block">Your Score</span>
-          <span className="text-xs font-extrabold">{totalScore} Pts</span>
-        </div>
+        )}
       </div>
 
-      {/* Progress Bar */}
-      <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden mb-6">
-        <div
-          className="bg-primary h-full transition-all duration-300 rounded-full"
-          style={{ width: `${((currentIdx + 1) / questions.length) * 100}%` }}
-        />
-      </div>
-
-      {/* Main Question Card */}
-      {currentQ && (
-        <div className="bg-white border border-outline-variant rounded-2xl p-6 md:p-10 shadow-sm flex flex-col gap-6 flex-grow">
-          
-          {/* Question Meta Header */}
-          <div className="flex justify-between items-center border-b border-outline-variant pb-4 flex-wrap gap-2">
-            <span className="bg-primary text-white font-extrabold text-xs px-3.5 py-1 rounded-full">
-              Question {currentIdx + 1} of {questions.length}
+      {/* Question Card */}
+      <div className="my-6 bg-white border border-outline-variant rounded-3xl p-6 sm:p-8 shadow-md flex flex-col gap-6">
+        
+        {/* Question Text */}
+        <div>
+          <div className="flex justify-between items-center text-xs text-on-surface-variant font-bold mb-2">
+            <span className="capitalize text-slate-500 font-extrabold uppercase text-[10px] tracking-wider">
+              {qType.replace('_', ' ')}
             </span>
-
-            <div className="flex items-center gap-3">
-              {!noTimer && countdown !== null && !questionSubmitted && (
-                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-extrabold text-sm border ${
-                  countdown <= 5 ? 'bg-red-50 border-red-300 text-red-700 animate-pulse' : 'bg-primary/10 border-primary/20 text-primary'
-                }`}>
-                  <span className="material-symbols-outlined text-sm">timer</span>
-                  {countdown}s
-                </div>
-              )}
-
-              {noTimer && (
-                <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm">all_inclusive</span>Self-Paced (No Limit)
-                </span>
-              )}
-
-              {graceCountdown !== null && graceCountdown > 0 && !questionSubmitted && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-extrabold text-sm border bg-cyan-50 border-cyan-300 text-cyan-700 animate-pulse">
-                  <span className="material-symbols-outlined text-sm">hourglass_bottom</span>
-                  Grace: {graceCountdown}s
-                </div>
-              )}
-
-              <span className="text-xs font-bold text-on-surface-variant">⭐ {currentQ.points || 10} Pts</span>
-            </div>
+            <span className="bg-slate-100 px-2.5 py-0.5 rounded text-slate-700 font-mono">
+              +{currentQ.points || 10} Points
+            </span>
           </div>
-
-          {/* Question Prompt */}
-          <h2 className="text-headline-md md:text-headline-lg font-bold text-on-surface leading-snug">
+          <h3 className="text-headline-sm font-black text-on-surface leading-snug">
             {currentQ.question_text}
-          </h2>
+          </h3>
+        </div>
 
-          {/* ── QUESTION TYPE INPUT RENDERERS ── */}
-          <div className="flex flex-col gap-4">
-
-            {/* Audio MCQ */}
-            {qType === 'audio_mcq' && currentQ.media_url && (
-              <div className="flex flex-col gap-2">
-                <audio
-                  controls
-                  src={currentQ.media_url}
-                  className="w-full rounded-lg"
-                  onEnded={handleMediaEnded}
-                />
-                {mediaEnded && !questionSubmitted && graceCountdown !== null && (
-                  <div className="flex items-center gap-2 bg-cyan-50 border border-cyan-200 text-cyan-800 p-3 rounded-xl text-xs font-bold">
-                    <span className="material-symbols-outlined text-sm">hourglass_bottom</span>
-                    Audio ended — answer in {graceCountdown}s!
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Video MCQ */}
-            {qType === 'video_mcq' && currentQ.media_url && (
-              <div className="flex flex-col gap-2">
-                <video
-                  controls
-                  src={currentQ.media_url}
-                  className="w-full rounded-xl max-h-64 object-contain bg-black"
-                  onEnded={handleMediaEnded}
-                />
-              </div>
-            )}
-
-            {/* Standard MCQ / True-False / Audio / Video */}
-            {['multiple_choice', 'true_false', 'audio_mcq', 'video_mcq'].includes(qType) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {parsedOpts.map((opt: string, idx: number) => {
-                  const isSelected = selectedOption === opt;
-                  return (
-                    <button
-                      key={idx}
-                      disabled={questionSubmitted}
-                      onClick={() => {
-                        setSelectedOption(opt);
-                        handleAnswerSubmit(opt);
-                      }}
-                      className={`p-5 rounded-2xl border-2 text-left font-bold text-body-md transition flex items-center gap-4 active:scale-95 ${
-                        isSelected
-                          ? 'bg-primary text-white border-primary shadow-xl'
-                          : questionSubmitted
-                          ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                          : 'bg-white hover:bg-primary/5 border-outline-variant hover:border-primary text-on-surface'
-                      }`}
-                    >
-                      <span className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold ${
-                        isSelected ? 'bg-white text-primary' : 'bg-slate-100 text-slate-700'
-                      }`}>
-                        {String.fromCharCode(65 + idx)}
-                      </span>
-                      <span className="flex-grow">{opt}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Multi-Select */}
-            {qType === 'multi_select' && (
-              <div className="flex flex-col gap-3">
-                <p className="text-xs font-bold text-on-surface-variant">Select all correct options, then click Submit.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {parsedOpts.map((opt: string, idx: number) => {
-                    const isChosen = selectedOptions.includes(opt);
-                    return (
-                      <button
-                        key={idx}
-                        disabled={questionSubmitted}
-                        onClick={() => {
-                          setSelectedOptions(prev => isChosen ? prev.filter(x => x !== opt) : [...prev, opt]);
-                        }}
-                        className={`p-4 rounded-2xl border-2 text-left font-semibold flex items-center gap-3 transition ${
-                          isChosen ? 'bg-primary/10 border-primary text-primary' : 'bg-white border-outline-variant hover:border-primary'
-                        }`}
-                      >
-                        <span className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center text-xs font-bold ${
-                          isChosen ? 'bg-primary border-primary text-white' : 'border-outline'
-                        }`}>
-                          {isChosen ? <span className="material-symbols-outlined text-xs">check</span> : String.fromCharCode(65 + idx)}
-                        </span>
-                        <span>{opt}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {!questionSubmitted && (
-                  <button
-                    onClick={() => handleAnswerSubmit(selectedOptions.join(','))}
-                    disabled={selectedOptions.length === 0}
-                    className="self-end bg-primary text-white font-bold px-8 py-3 rounded-xl hover:bg-primary/90 transition shadow active:scale-95 disabled:opacity-50"
-                  >
-                    Submit Choice ({selectedOptions.length})
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Short Answer */}
-            {qType === 'short_answer' && (
-              <div className="flex flex-col gap-3">
-                <input
-                  type="text"
-                  autoFocus
+        {/* Options / Answer Input based on Question Type */}
+        <div className="flex flex-col gap-3">
+          {(qType === 'multiple_choice' || qType === 'true_false' || qType === 'audio_mcq' || qType === 'video_mcq') && (
+            parsedOpts.map((opt: string, i: number) => {
+              const isSelected = selectedOption === opt;
+              return (
+                <button
+                  key={i}
                   disabled={questionSubmitted}
-                  className="w-full border-2 border-primary/40 focus:border-primary rounded-xl px-4 py-3 text-headline-sm font-bold text-center focus:outline-none bg-primary/5 disabled:opacity-60"
-                  placeholder="Type your answer…"
-                  value={typedAnswer}
-                  onChange={e => setTypedAnswer(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && typedAnswer.trim()) handleAnswerSubmit(typedAnswer.trim()); }}
-                />
-                {!questionSubmitted && (
-                  <button
-                    onClick={() => handleAnswerSubmit(typedAnswer.trim())}
-                    disabled={!typedAnswer.trim()}
-                    className="self-center bg-primary text-white font-bold px-8 py-3 rounded-xl hover:bg-primary/90 transition shadow active:scale-95 disabled:opacity-50"
-                  >
-                    Submit Answer
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Fill in the Blank */}
-            {qType === 'fill_blank' && (
-              <div className="flex flex-col gap-3">
-                <div className="text-headline-md font-bold text-on-surface bg-slate-50 border border-slate-200 rounded-xl p-4 leading-loose">
-                  {currentQ.question_text.split('___').map((part: string, i: number, arr: string[]) => (
-                    <span key={i}>
-                      {part}
-                      {i < arr.length - 1 && (
-                        <input
-                          type="text"
-                          disabled={questionSubmitted}
-                          className="inline-block border-b-2 border-primary bg-transparent text-center font-bold text-primary focus:outline-none min-w-[100px] w-32 mx-1 disabled:opacity-60"
-                          placeholder="___"
-                          value={typedAnswer}
-                          onChange={e => setTypedAnswer(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter' && typedAnswer.trim()) handleAnswerSubmit(typedAnswer.trim()); }}
-                        />
-                      )}
-                    </span>
-                  ))}
-                </div>
-                {!questionSubmitted && (
-                  <button
-                    onClick={() => handleAnswerSubmit(typedAnswer.trim())}
-                    disabled={!typedAnswer.trim()}
-                    className="self-center bg-primary text-white font-bold px-8 py-3 rounded-xl hover:bg-primary/90 transition shadow active:scale-95 disabled:opacity-50"
-                  >
-                    Submit Answer
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Ordering */}
-            {qType === 'ordering' && (
-              <div className="flex flex-col gap-3">
-                <p className="text-xs font-bold text-on-surface-variant">Reorder the items into correct sequence.</p>
-                <div className="flex flex-col gap-2">
-                  {(orderedItems.length ? orderedItems : parsedOpts).map((item: string, idx: number) => (
-                    <div key={idx} className="flex items-center gap-3 bg-white border border-outline-variant rounded-xl p-3.5 shadow-sm">
-                      <span className="w-7 h-7 rounded-full bg-primary text-white font-bold text-xs flex items-center justify-center flex-shrink-0">{idx + 1}</span>
-                      <span className="flex-grow text-sm font-semibold text-on-surface">{item}</span>
-                      <div className="flex flex-col gap-0.5">
-                        <button
-                          disabled={idx === 0 || questionSubmitted}
-                          onClick={() => {
-                            const arr = [...orderedItems];
-                            [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
-                            setOrderedItems(arr);
-                          }}
-                          className="text-slate-400 hover:text-primary disabled:opacity-20"
-                        >
-                          <span className="material-symbols-outlined text-sm">arrow_upward</span>
-                        </button>
-                        <button
-                          disabled={idx === orderedItems.length - 1 || questionSubmitted}
-                          onClick={() => {
-                            const arr = [...orderedItems];
-                            [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
-                            setOrderedItems(arr);
-                          }}
-                          className="text-slate-400 hover:text-primary disabled:opacity-20"
-                        >
-                          <span className="material-symbols-outlined text-sm">arrow_downward</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {!questionSubmitted && (
-                  <button
-                    onClick={() => handleAnswerSubmit(orderedItems.join('|'))}
-                    className="self-center bg-primary text-white font-bold px-8 py-3 rounded-xl hover:bg-primary/90 transition shadow active:scale-95"
-                  >
-                    Lock In Order
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Match the Following */}
-            {qType === 'match_following' && (
-              <div className="flex flex-col gap-3">
-                <p className="text-xs font-bold text-on-surface-variant">Click a left item, then click its matching right item to pair them.</p>
-                <MatchFollowingBoard
-                  options={parsedOpts}
-                  selections={matchSelections}
-                  submitted={questionSubmitted}
-                  onSelect={(left, right) => {
-                    const updated = { ...matchSelections, [left]: right };
-                    setMatchSelections(updated);
-                  }}
-                  onSubmit={() => {
-                    const ansStr = Object.entries(matchSelections).map(([l, r]) => `${l}:${r}`).join(',');
-                    handleAnswerSubmit(ansStr);
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Image Choice */}
-            {qType === 'image_choice' && (
-              <div className="grid grid-cols-2 gap-4">
-                {parsedOpts.map((imgUrl: string, idx: number) => {
-                  const isSelected = selectedOption === String(idx);
-                  return (
-                    <button
-                      key={idx}
-                      disabled={questionSubmitted}
-                      onClick={() => {
-                        setSelectedOption(String(idx));
-                        handleAnswerSubmit(String(idx));
-                      }}
-                      className={`rounded-2xl border-4 overflow-hidden transition active:scale-95 ${
-                        isSelected ? 'border-primary shadow-xl' : 'border-outline-variant hover:border-primary/50'
-                      }`}
-                    >
-                      {imgUrl ? (
-                        <img src={imgUrl} alt={`Option ${String.fromCharCode(65 + idx)}`} className="w-full h-32 object-cover" />
-                      ) : (
-                        <div className="w-full h-32 bg-slate-100 flex items-center justify-center text-slate-400">
-                          <span className="material-symbols-outlined text-3xl">image</span>
-                        </div>
-                      )}
-                      <div className={`py-2 text-xs font-bold text-center ${isSelected ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'}`}>
-                        {String.fromCharCode(65 + idx)}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-          </div>
-
-          {/* ── IMMEDIATE FEEDBACK BOX ── */}
-          {questionSubmitted && activeUserAnswer && (
-            <div className={`p-4 rounded-xl border font-bold text-xs flex justify-between items-center animate-scale ${
-              activeUserAnswer.isCorrect ? 'bg-green-50 border-green-300 text-green-800' : 'bg-red-50 border-red-300 text-red-800'
-            }`}>
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-base">
-                  {activeUserAnswer.isCorrect ? 'check_circle' : 'cancel'}
-                </span>
-                <span>
-                  {activeUserAnswer.isCorrect ? `Correct! +${activeUserAnswer.pointsEarned} Points` : `Incorrect. Correct Answer: ${currentQ.correct_answer}`}
-                </span>
-              </div>
-
-              <button
-                onClick={handleNextQuestion}
-                className="bg-primary text-white font-bold px-6 py-2.5 rounded-xl hover:bg-primary/90 transition shadow text-xs flex items-center gap-1 active:scale-95 ml-4 flex-shrink-0"
-              >
-                <span className="flex items-center gap-1">
-                  {currentIdx + 1 >= questions.length ? 'View Results' : 'Next Question'}
-                  <span className="material-symbols-outlined text-xs">arrow_forward</span>
-                </span>
-              </button>
-            </div>
+                  onClick={() => setSelectedOption(opt)}
+                  className={`w-full text-left p-4 rounded-2xl text-xs font-extrabold border-2 transition flex items-center justify-between ${
+                    isSelected
+                      ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                      : 'border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 text-slate-800'
+                  }`}
+                >
+                  <span>{opt}</span>
+                  {isSelected && <span className="material-symbols-outlined text-base">check_circle</span>}
+                </button>
+              );
+            })
           )}
 
+          {qType === 'multi_select' && (
+            parsedOpts.map((opt: string, i: number) => {
+              const isSelected = selectedOptions.includes(opt);
+              return (
+                <button
+                  key={i}
+                  disabled={questionSubmitted}
+                  onClick={() => {
+                    if (isSelected) setSelectedOptions(selectedOptions.filter(o => o !== opt));
+                    else setSelectedOptions([...selectedOptions, opt]);
+                  }}
+                  className={`w-full text-left p-4 rounded-2xl text-xs font-extrabold border-2 transition flex items-center justify-between ${
+                    isSelected
+                      ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                      : 'border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 text-slate-800'
+                  }`}
+                >
+                  <span>{opt}</span>
+                  <span className="material-symbols-outlined text-base">
+                    {isSelected ? 'check_box' : 'check_box_outline_blank'}
+                  </span>
+                </button>
+              );
+            })
+          )}
+
+          {(qType === 'short_answer' || qType === 'fill_blank') && (
+            <input
+              type="text"
+              disabled={questionSubmitted}
+              value={typedAnswer}
+              onChange={(e) => setTypedAnswer(e.target.value)}
+              placeholder="Type your answer here..."
+              className="w-full border-2 border-slate-200 rounded-2xl p-4 text-xs font-bold bg-slate-50 focus:bg-white focus:border-primary focus:outline-none"
+            />
+          )}
         </div>
-      )}
-    </div>
-  );
-}
 
-// ─── Match the Following Board Sub-Component ──────────────────────────────────
-
-interface MatchBoardProps {
-  options: string[];     // "Left:Right" pairs
-  selections: Record<string, string>;
-  submitted: boolean;
-  onSelect: (left: string, right: string) => void;
-  onSubmit: () => void;
-}
-
-function MatchFollowingBoard({ options, selections, submitted, onSelect, onSubmit }: MatchBoardProps) {
-  const [activeLeft, setActiveLeft] = useState<string | null>(null);
-
-  const pairs = options.map((o: string) => { const [l, r] = o.split(':'); return { left: l || o, right: r || '' }; });
-  const leftItems = pairs.map(p => p.left);
-  const rightItems = [...pairs.map(p => p.right)].sort(() => Math.random() - 0.5);
-
-  const allMatched = leftItems.every(l => selections[l]);
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4">
-        {/* Left column */}
-        <div className="flex flex-col gap-2">
-          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider text-center">Column A</span>
-          {leftItems.map((left, i) => (
-            <button key={i} disabled={submitted} onClick={() => setActiveLeft(activeLeft === left ? null : left)}
-              className={`p-3 rounded-xl border-2 text-xs font-bold text-left transition ${activeLeft === left ? 'border-primary bg-primary text-white' : selections[left] ? 'border-green-400 bg-green-50 text-green-800' : 'border-outline-variant bg-white hover:border-primary'}`}>
-              {left}
-              {selections[left] && <span className="block text-[10px] font-normal opacity-70">→ {selections[left]}</span>}
-            </button>
-          ))}
-        </div>
-        {/* Right column */}
-        <div className="flex flex-col gap-2">
-          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider text-center">Column B</span>
-          {rightItems.map((right, i) => {
-            const isMatched = Object.values(selections).includes(right);
-            return (
-              <button key={i} disabled={submitted || !activeLeft}
-                onClick={() => { if (activeLeft) { onSelect(activeLeft, right); setActiveLeft(null); } }}
-                className={`p-3 rounded-xl border-2 text-xs font-bold text-left transition ${isMatched ? 'border-green-400 bg-green-50 text-green-800 opacity-70 cursor-default' : activeLeft ? 'border-primary/40 bg-primary/5 hover:border-primary hover:bg-primary/10 cursor-pointer' : 'border-outline-variant bg-white opacity-60 cursor-default'}`}>
-                {right}
-              </button>
-            );
-          })}
-        </div>
       </div>
-      {!submitted && (
-        <button onClick={onSubmit} disabled={!allMatched}
-          className="self-center bg-primary text-white font-bold px-8 py-3 rounded-xl hover:bg-primary/90 transition shadow active:scale-95 disabled:opacity-50">
-          Submit Matches ({Object.keys(selections).length}/{leftItems.length} matched)
+
+      {/* Bottom Footer Controls */}
+      <div className="flex justify-between items-center">
+        <button
+          onClick={() => navigate('/student/dashboard')}
+          className="text-xs font-bold text-slate-500 hover:text-slate-700"
+        >
+          Exit Quiz
         </button>
-      )}
+
+        {!questionSubmitted ? (
+          <button
+            onClick={handleConfirmAnswer}
+            disabled={
+              (qType === 'multiple_choice' && !selectedOption) ||
+              (qType === 'multi_select' && selectedOptions.length === 0) ||
+              ((qType === 'short_answer' || qType === 'fill_blank') && !typedAnswer.trim())
+            }
+            className="bg-primary text-white font-extrabold px-8 py-3 rounded-2xl text-xs shadow-lg hover:bg-primary/90 transition disabled:opacity-50 active:scale-95"
+          >
+            Confirm &amp; Submit
+          </button>
+        ) : (
+          <button
+            onClick={handleNextQuestion}
+            className="bg-green-600 text-white font-extrabold px-8 py-3 rounded-2xl text-xs shadow-lg hover:bg-green-700 transition active:scale-95 flex items-center gap-1"
+          >
+            <span>{currentIdx + 1 < questions.length ? 'Next Question' : 'View Results'}</span>
+            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+          </button>
+        )}
+      </div>
+
     </div>
   );
 }

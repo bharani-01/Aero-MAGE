@@ -1,12 +1,16 @@
 import { Router } from 'express';
 import { authenticateToken, requirePermission } from '../../middleware/auth.js';
-import { listQuizzes, getQuizDetails, createQuiz, updateQuiz, updateQuizVisibility, cloneQuiz } from './quizzes.controller.js';
+import { listQuizzes, getQuizDetails, createQuiz, updateQuiz, updateQuizVisibility, cloneQuiz, toggleBookmark, getUserBookmarks, recordQuizAttempt, getQuizAttempts } from './quizzes.controller.js';
 const router = Router();
 router.use(authenticateToken);
 router.get('/', requirePermission('quiz:read'), listQuizzes);
+router.get('/bookmarks/my', requirePermission('quiz:read'), getUserBookmarks);
 router.get('/:quizId', requirePermission('quiz:read'), getQuizDetails);
 router.post('/', requirePermission('quiz:create'), createQuiz);
 router.post('/:quizId/clone', requirePermission('quiz:create'), cloneQuiz);
+router.post('/:quizId/bookmark', requirePermission('quiz:read'), toggleBookmark);
+router.post('/:quizId/attempt', requirePermission('quiz:read'), recordQuizAttempt);
+router.get('/:quizId/attempts', requirePermission('quiz:read'), getQuizAttempts);
 router.put('/:quizId', requirePermission('quiz:update'), updateQuiz);
 router.put('/:quizId/visibility', requirePermission('quiz:update'), updateQuizVisibility);
 export default router;

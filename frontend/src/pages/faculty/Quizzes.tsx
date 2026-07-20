@@ -136,6 +136,30 @@ export default function FacultyQuizzes() {
   // Modal
   const [selectedQuizModal, setSelectedQuizModal] = useState<any | null>(null);
 
+  // Results Modal State
+  const [selectedResultsQuiz, setSelectedResultsQuiz] = useState<any | null>(null);
+  const [attemptsData, setAttemptsData] = useState<any | null>(null);
+  const [attemptsLoading, setAttemptsLoading] = useState(false);
+
+  const openResultsModal = async (quiz: any) => {
+    setSelectedResultsQuiz(quiz);
+    setAttemptsLoading(true);
+    const token = localStorage.getItem('accessToken');
+    try {
+      const res = await fetch(`/api/quizzes/${quiz.id}/attempts`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setAttemptsData(json.data);
+      }
+    } catch (err) {
+      console.error('Failed to load quiz results:', err);
+    } finally {
+      setAttemptsLoading(false);
+    }
+  };
+
   // Drag-reorder ref for ordering questions
   const dragIdx = useRef<number | null>(null);
 
@@ -711,6 +735,11 @@ export default function FacultyQuizzes() {
                               </button>
                             </>
                           )}
+                          <button onClick={() => openResultsModal(quiz)}
+                            className="bg-sky-50 hover:bg-sky-100 text-sky-700 font-bold text-xs px-2.5 py-1.5 rounded-lg border border-sky-200 transition flex items-center gap-1"
+                            title="View student results & attempt analytics">
+                            <span className="material-symbols-outlined text-xs">monitoring</span> Results
+                          </button>
                           <button onClick={() => setSelectedShareQuiz(quiz)}
                             className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 transition flex items-center gap-1"
                             title="Share quiz to classroom stream or via link">
@@ -732,6 +761,100 @@ export default function FacultyQuizzes() {
 
       {/* Quiz Share Modal */}
       <QuizShareModal quiz={selectedShareQuiz} onClose={() => setSelectedShareQuiz(null)} />
+
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* STUDENT QUIZ ATTEMPTS & MARKS RESULTS MODAL                          */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {selectedResultsQuiz && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl relative border border-outline-variant/30 flex flex-col gap-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-outline-variant pb-4">
+              <div>
+                <span className="bg-primary/10 text-primary text-[10px] font-extrabold px-3 py-0.5 rounded-full uppercase tracking-wider">
+                  Quiz Completion Analytics
+                </span>
+                <h3 className="text-headline-sm font-extrabold text-on-surface mt-1">
+                  {selectedResultsQuiz.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => { setSelectedResultsQuiz(null); setAttemptsData(null); }}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+
+            {attemptsLoading || !attemptsData ? (
+              <div className="p-12 text-center text-on-surface-variant font-bold animate-pulse">
+                Fetching quiz attempt results from database…
+              </div>
+            ) : (
+              <div className="flex flex-col gap-6">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
+                    <span className="text-[10px] font-extrabold uppercase text-slate-500">Total Attempts</span>
+                    <h4 className="text-2xl font-black text-slate-800 mt-1">{attemptsData.stats.totalAttempts}</h4>
+                  </div>
+                  <div className="bg-sky-50 border border-sky-200 rounded-2xl p-4 text-center">
+                    <span className="text-[10px] font-extrabold uppercase text-sky-700">Average Marks</span>
+                    <h4 className="text-2xl font-black text-sky-800 mt-1">{attemptsData.stats.avgScore} pts</h4>
+                  </div>
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
+                    <span className="text-[10px] font-extrabold uppercase text-emerald-700">Average Percentage</span>
+                    <h4 className="text-2xl font-black text-emerald-800 mt-1">{attemptsData.stats.avgPercentage}%</h4>
+                  </div>
+                </div>
+
+                {attemptsData.attempts.length === 0 ? (
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 text-center text-xs text-on-surface-variant flex flex-col items-center gap-2">
+                    <span className="material-symbols-outlined text-3xl text-slate-400">history_toggle_off</span>
+                    <p className="font-bold text-on-surface">No student attempts recorded for this quiz yet.</p>
+                  </div>
+                ) : (
+                  <div className="border border-outline-variant rounded-2xl overflow-hidden shadow-sm">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 border-b border-outline-variant text-[11px] font-extrabold text-on-surface-variant uppercase tracking-wider">
+                          <th className="p-3.5">Student Name &amp; Email</th>
+                          <th className="p-3.5">Score / Marks</th>
+                          <th className="p-3.5">Percentage</th>
+                          <th className="p-3.5">Time Taken</th>
+                          <th className="p-3.5">Completed Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-outline-variant/60 text-xs font-medium">
+                        {attemptsData.attempts.map((row: any) => (
+                          <tr key={row.id} className="hover:bg-slate-50 transition">
+                            <td className="p-3.5">
+                              <strong className="text-on-surface block font-bold">{row.studentName}</strong>
+                              <span className="text-[11px] text-slate-400">{row.studentEmail}</span>
+                            </td>
+                            <td className="p-3.5 font-bold text-on-surface">
+                              {row.score} / {row.totalPoints}
+                            </td>
+                            <td className="p-3.5 font-bold">
+                              <span className={row.percentage >= 70 ? 'text-green-700' : 'text-amber-700'}>
+                                {row.percentage}%
+                              </span>
+                            </td>
+                            <td className="p-3.5 font-mono text-slate-600">
+                              {row.timeTakenSeconds ? `${Math.floor(row.timeTakenSeconds / 60)}m ${row.timeTakenSeconds % 60}s` : 'N/A'}
+                            </td>
+                            <td className="p-3.5 text-slate-500">
+                              {new Date(row.completedAt).toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ═════════════════════════════════════════════════════════════════════ */}
       {/* QUIZ PREVIEW MODAL                                                    */}

@@ -24,13 +24,17 @@ import ItAdminAuditLogs from './pages/itadmin/AuditLogs.tsx';
 import FacultyRooms from './pages/faculty/Rooms.tsx';
 import FacultyQuizzes from './pages/faculty/Quizzes.tsx';
 import HostLiveSession from './pages/faculty/HostLiveSession.tsx';
+import FacultyLibrary from './pages/faculty/FacultyLibrary.tsx';
 
 // Student Pages
 import StudentDashboard from './pages/student/Dashboard.tsx';
 import StudentLiveSession from './pages/student/StudentLiveSession.tsx';
 import StudentSoloQuiz from './pages/student/StudentSoloQuiz.tsx';
+import StudentLibrary from './pages/student/StudentLibrary.tsx';
+import StudentRooms from './pages/student/StudentRooms.tsx';
 import ClassroomStream from './pages/ClassroomStream.tsx';
 import QuizLibrary from './pages/QuizLibrary.tsx';
+import UserProfile from './pages/UserProfile.tsx';
 
 // Protected Route Wrapper Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -192,12 +196,37 @@ export function App() {
           } 
         />
 
+        <Route 
+          path="/faculty/library" 
+          element={
+            <RoleProtectedRoute allowedRoles={['faculty']}>
+              <FacultyLibrary />
+            </RoleProtectedRoute>
+          } 
+        />
+
         {/* Student/User Scoped Routes */}
         <Route 
           path="/student/dashboard" 
           element={
             <RoleProtectedRoute allowedRoles={['student', 'user']}>
               <StudentDashboard />
+            </RoleProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/student/rooms" 
+          element={
+            <RoleProtectedRoute allowedRoles={['student', 'user']}>
+              <StudentRooms />
+            </RoleProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/student/library" 
+          element={
+            <RoleProtectedRoute allowedRoles={['student', 'user']}>
+              <StudentLibrary />
             </RoleProtectedRoute>
           } 
         />
@@ -214,8 +243,24 @@ export function App() {
           element={<ClassroomStream />} 
         />
         <Route 
+          path="/rooms/:roomId" 
+          element={<ClassroomStream />} 
+        />
+        <Route 
+          path="/dashboard" 
+          element={<DashboardLoader />} 
+        />
+        <Route 
           path="/library" 
           element={<QuizLibrary />} 
+        />
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedRoute>
+              <UserProfile />
+            </ProtectedRoute>
+          } 
         />
         <Route 
           path="/join" 

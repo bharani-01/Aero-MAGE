@@ -218,6 +218,12 @@ export const handleLogin = async (credentials: any, ipAddress: string, userAgent
     });
   });
 
+  const userRoles = await prisma.userRole.findMany({
+    where: { user_id: user.id },
+    include: { role: true }
+  });
+  const primaryRole = userRoles.length > 0 ? userRoles[0].role.name : 'student';
+
   return {
     accessToken,
     refreshToken,
@@ -225,7 +231,12 @@ export const handleLogin = async (credentials: any, ipAddress: string, userAgent
       id: user.id,
       email: user.email,
       displayName: user.display_name,
+      display_name: user.display_name,
+      username: user.username,
+      phoneNumber: user.phone_number,
       avatarUrl: user.avatar_url,
+      role: primaryRole,
+      role_name: primaryRole
     },
   };
 };

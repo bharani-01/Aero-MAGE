@@ -14,6 +14,8 @@ model User {
   email_lower            String    @unique
   password_hash          String?   @db.VarChar(255)
   display_name           String    @db.VarChar(50)
+  username               String?   @db.VarChar(50)
+  phone_number           String?   @db.VarChar(30)
   avatar_url             String?   @db.VarChar(500)
   status                 String    @default("unverified") @db.VarChar(20)
   is_verified            Boolean   @default(false)
@@ -38,6 +40,10 @@ model User {
   profile                UserProfile?
   gamification           UserGamification?
   streak                 UserStreak?
+  bookmarks              UserBookmark[]
+  assignment_submissions AssignmentSubmission[]
+  room_memberships       RoomMember[]
+  quiz_attempts          QuizAttempt[]
 
   // Tenant management relations
   organizations_owned    Organization[]     @relation("OrgOwner")
@@ -145,6 +151,7 @@ model Room {
   room_code       String    @unique @db.VarChar(10)
   name            String    @db.VarChar(100)
   organization_id String    @db.Uuid
+  banner_url      String?   @db.VarChar(500)
   status          String    @default("active") @db.VarChar(20)
   created_at      DateTime  @default(now()) @db.Timestamptz
   updated_at      DateTime  @default(now()) @db.Timestamptz
@@ -153,6 +160,8 @@ model Room {
   organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
   creator         User         @relation("RoomCreator", fields: [created_by], references: [id])
   posts           RoomPost[]
+  assignments     ClassroomAssignment[]
+  members         RoomMember[]
 
   @@map("room")
 }
@@ -179,6 +188,9 @@ model Quiz {
   questions          Question[]
   live_sessions      LiveSession[]
   room_posts         RoomPost[]
+  bookmarks          UserBookmark[]
+  assignments        ClassroomAssignment[]
+  attempts           QuizAttempt[]
 
   @@map("quiz")
 }
@@ -416,4 +428,93 @@ model RoomComment {
   post            RoomPost  @relation(fields: [post_id], references: [id], onDelete: Cascade)
 
   @@map("room_comment")
+}
+
+model UserBookmark {
+  internal_id     BigInt    @id @default(autoincrement())
+  id              String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @db.Uuid
+  quiz_id         String    @db.Uuid
+  created_at      DateTime  @default(now()) @db.Timestamptz
+
+  user            User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  quiz            Quiz      @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, quiz_id])
+  @@map("user_bookmark")
+}
+
+model ClassroomAssignment {
+  internal_id        BigInt    @id @default(autoincrement())
+  id                 String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  room_id            String    @db.Uuid
+  quiz_id            String    @db.Uuid
+  title              String    @db.VarChar(200)
+  instructions       String?   @db.VarChar(2000)
+  due_date           DateTime? @db.Timestamptz
+  total_points       Int       @default(100)
+  max_attempts       Int       @default(1) // 1 = Single Attempt, 0 = Unlimited
+  time_limit_minutes Int?
+  show_answers       Boolean   @default(true)
+  created_at         DateTime  @default(now()) @db.Timestamptz
+
+  room            Room      @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  quiz            Quiz      @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+  submissions     AssignmentSubmission[]
+
+  @@map("classroom_assignment")
+}
+
+model AssignmentSubmission {
+  internal_id         BigInt              @id @default(autoincrement())
+  id                  String              @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assignment_id       String              @db.Uuid
+  user_id             String              @db.Uuid
+  student_name        String              @db.VarChar(100)
+  score               Int                 @default(0)
+  total_points        Int                 @default(100)
+  percentage          Float               @default(0)
+  time_taken_seconds  Int                 @default(0)
+  status              String              @default("submitted") @db.VarChar(20)
+  submitted_at        DateTime            @default(now()) @db.Timestamptz
+
+  assignment          ClassroomAssignment @relation(fields: [assignment_id], references: [id], onDelete: Cascade)
+  user                User                @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([assignment_id, user_id])
+  @@map("assignment_submission")
+}
+
+model RoomMember {
+  internal_id     BigInt    @id @default(autoincrement())
+  id              String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  room_id         String    @db.Uuid
+  user_id         String    @db.Uuid
+  status          String    @default("active") @db.VarChar(20)
+  joined_at       DateTime  @default(now()) @db.Timestamptz
+
+  room            Room      @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([room_id, user_id])
+  @@map("room_member")
+}
+
+model QuizAttempt {
+  internal_id         BigInt    @id @default(autoincrement())
+  id                  String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quiz_id             String    @db.Uuid
+  user_id             String    @db.Uuid
+  student_name        String    @db.VarChar(100)
+  score               Int       @default(0)
+  total_points        Int       @default(100)
+  percentage          Float     @default(0)
+  time_taken_seconds  Int       @default(0)
+  answers_json        String?   @db.Text
+  completed_at        DateTime  @default(now()) @db.Timestamptz
+
+  quiz                Quiz      @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+  user                User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("quiz_attempt")
 }

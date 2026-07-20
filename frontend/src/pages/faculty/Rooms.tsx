@@ -11,12 +11,27 @@ export default function FacultyRooms() {
   // Form inputs
   const [roomName, setRoomName] = useState('');
   const [roomCode, setRoomCode] = useState('');
+  const [roomMode, setRoomMode] = useState('code_only');
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
   // Classrooms listing
   const [roomsList, setRoomsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const generateRandomCode = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setRoomCode(code);
+  };
+
+  const handleOpenCreateModal = () => {
+    generateRandomCode();
+    setShowCreateModal(true);
+  };
 
   useEffect(() => {
     fetchRooms();
@@ -64,7 +79,7 @@ export default function FacultyRooms() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ name: roomName, roomCode })
+        body: JSON.stringify({ name: roomName, roomCode, roomMode })
       });
       const json = await res.json();
 
@@ -72,6 +87,7 @@ export default function FacultyRooms() {
         setSuccessMsg(`Classroom "${roomName}" [${roomCode.toUpperCase()}] created successfully!`);
         setRoomName('');
         setRoomCode('');
+        setRoomMode('code_only');
         setShowCreateModal(false);
         fetchRooms();
       } else {
@@ -101,11 +117,7 @@ export default function FacultyRooms() {
           </div>
 
           <button
-            onClick={() => {
-              setSuccessMsg('');
-              setErrorMsg('');
-              setShowCreateModal(true);
-            }}
+            onClick={handleOpenCreateModal}
             className="z-10 bg-white text-primary font-extrabold px-6 py-3 rounded-full text-xs hover:shadow-xl transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap shadow"
           >
             <span className="material-symbols-outlined text-base">add_circle</span>
@@ -228,16 +240,47 @@ export default function FacultyRooms() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-on-surface uppercase mb-1.5">6-Digit Access Code *</label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  className="w-full border border-outline rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary text-xs font-mono uppercase tracking-wider"
-                  placeholder="e.g. PHYS99"
-                  value={roomCode}
-                  onChange={(e) => setRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                  required
-                />
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs font-bold text-on-surface uppercase">Auto-Generated Access Code *</label>
+                  <button
+                    type="button"
+                    onClick={generateRandomCode}
+                    className="text-primary hover:text-primary/80 text-[11px] font-extrabold flex items-center gap-1 hover:underline"
+                  >
+                    <span className="material-symbols-outlined text-xs">autorenew</span>
+                    Randomize Code
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    className="w-full border-2 border-primary/40 bg-slate-50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary text-xs font-mono font-black uppercase tracking-widest text-slate-900"
+                    placeholder="e.g. A8K39X"
+                    value={roomCode}
+                    onChange={(e) => setRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                    required
+                  />
+                  <span className="absolute right-3 top-3 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded">
+                    100% Unique
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface uppercase mb-1.5">Classroom Access Mode &amp; Policy *</label>
+                <select
+                  value={roomMode}
+                  onChange={(e) => setRoomMode(e.target.value)}
+                  className="w-full border border-outline rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary text-xs font-semibold bg-white"
+                >
+                  <option value="code_only">🔑 Join Only with 6-Digit Code (Default)</option>
+                  <option value="public">🌐 Public to Everyone (Open Access)</option>
+                  <option value="org_only">🏛️ Public to Organization Members Only</option>
+                  <option value="approval_required">🛡️ Join Request Requires Approval</option>
+                  <option value="archived">📦 Archived Course (Read-only)</option>
+                </select>
               </div>
 
               <div className="flex justify-end gap-3 border-t border-outline-variant pt-4 mt-2">

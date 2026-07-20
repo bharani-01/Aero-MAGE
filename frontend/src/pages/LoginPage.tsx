@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Lock, Mail, Chrome, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, ArrowRight, AlertTriangle } from 'lucide-react';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -10,6 +10,21 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [shake, setShake] = useState(false);
+
+  // Selected Organization Demo Filter
+  const [selectedDomain, setSelectedDomain] = useState('school.com');
+
+  const demoOrgs = [
+    { label: 'Global Main', domain: 'school.com' },
+    { label: 'MIT', domain: 'mit.edu' },
+    { label: 'Stanford', domain: 'stanford.edu' },
+    { label: 'Harvard', domain: 'harvard.edu' },
+    { label: 'Caltech', domain: 'caltech.edu' },
+    { label: 'Oxford', domain: 'oxford.ac.uk' },
+    { label: 'Cambridge', domain: 'cam.ac.uk' },
+    { label: 'ETH Zurich', domain: 'ethz.ch' },
+    { label: 'UC Berkeley', domain: 'berkeley.edu' }
+  ];
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,10 +70,6 @@ export default function LoginPage() {
     setTimeout(() => setShake(false), 500);
   };
 
-  const handleGoogleSignIn = () => {
-    alert('Connecting to Google OAuth authentication window...');
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-body-md text-on-surface">
       {/* Left Panel: Branding & Tagline */}
@@ -92,141 +103,126 @@ export default function LoginPage() {
       </div>
 
       {/* Right Panel: Authentication Form */}
-      <div className="md:w-1/2 flex items-center justify-center p-8 bg-white">
-        <div className="w-full max-w-md flex flex-col">
-          <div className="mb-8 text-center md:text-left">
-            <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-2">Welcome Back</h3>
-            <p className="text-sm text-slate-500">Sign in to your Aero MAGE account to join rooms.</p>
+      <div className="md:w-1/2 flex items-center justify-center p-8 bg-white overflow-y-auto">
+        <div className="w-full max-w-md flex flex-col my-auto">
+          <div className="mb-6 text-center md:text-left">
+            <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-1">Welcome Back</h3>
+            <p className="text-xs text-slate-500">Sign in to your Aero MAGE account to enter classrooms &amp; quizzes.</p>
           </div>
 
-          {/* Social login */}
-          <button 
-            onClick={handleGoogleSignIn}
-            className="flex items-center justify-center gap-3 w-full border border-slate-200 hover:bg-slate-50 px-4 py-3 rounded-xl font-bold text-slate-700 transition shadow-sm mb-6"
-          >
-            <Chrome className="w-5 h-5 text-red-500" />
-            Continue with Google
-          </button>
-
-          <div className="flex items-center justify-center gap-4 text-xs font-semibold text-slate-400 mb-6">
-            <div className="h-px bg-slate-200 flex-grow"></div>
-            <span>or sign in with email</span>
-            <div className="h-px bg-slate-200 flex-grow"></div>
-          </div>
-
-          {/* Error Message Box */}
           {errorMsg && (
-            <div className={`flex items-start gap-3 bg-rose-50 border border-rose-100 p-4 rounded-xl text-rose-800 text-sm mb-6 ${shake ? 'animate-bounce' : ''}`}>
-              <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            <div className={`mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-3 ${shake ? 'animate-shake' : ''}`}>
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 text-red-600" />
               <span>{errorMsg}</span>
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleLoginSubmit} className="space-y-5 text-left">
+          <form onSubmit={handleLoginSubmit} className="flex flex-col gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Email Address</label>
+              <label className="block text-[11px] font-extrabold uppercase text-slate-500 mb-1">Email Address</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Mail className="w-4 h-4" /></span>
+                <Mail className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
                 <input
                   type="email"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary focus:bg-white outline-none transition"
-                  placeholder="name@example.com"
+                  required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-primary focus:outline-none transition"
+                  placeholder="name@school.edu"
                 />
               </div>
             </div>
 
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Password</label>
-                <span 
-                  onClick={() => alert('Forgot password helper: Token will be generated in server logs.')} 
-                  className="text-xs text-primary hover:underline font-bold cursor-pointer"
-                >
-                  Forgot Password?
-                </span>
-              </div>
+              <label className="block text-[11px] font-extrabold uppercase text-slate-500 mb-1">Password</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Lock className="w-4 h-4" /></span>
+                <Lock className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-3 text-sm focus:ring-2 focus:ring-primary focus:bg-white outline-none transition"
-                  placeholder="••••••••"
+                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
+                  className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-primary focus:outline-none transition"
+                  placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 outline-none"
+                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            {/* Quick Testing Autofill Helper Buttons */}
-            <div className="flex flex-wrap gap-2 pt-1 pb-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('admin@aeromage.com');
-                  setPassword('Password123!');
-                }}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition"
-              >
-                Super Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('org@aeromage.com');
-                  setPassword('Password123!');
-                }}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition"
-              >
-                Org Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('it@aeromage.com');
-                  setPassword('Password123!');
-                }}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition"
-              >
-                IT Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('faculty@aeromage.com');
-                  setPassword('Password123!');
-                }}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition"
-              >
-                Faculty
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('student@aeromage.com');
-                  setPassword('Password123!');
-                }}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold px-2.5 py-1.5 rounded-lg transition"
-              >
-                Student
-              </button>
+            {/* Organization Credentials Quick Selector */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col gap-3">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-black uppercase text-primary tracking-wider">
+                  ⚡ Demo Login Quick Selector
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">Password: Password123!</span>
+              </div>
+
+              {/* Organization Picker Tabs */}
+              <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {demoOrgs.map((org) => (
+                  <button
+                    key={org.domain}
+                    type="button"
+                    onClick={() => setSelectedDomain(org.domain)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold whitespace-nowrap transition ${
+                      selectedDomain === org.domain
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {org.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Quick Role Fill Buttons */}
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail(`faculty@${selectedDomain}`);
+                    setPassword('Password123!');
+                  }}
+                  className="bg-violet-100 hover:bg-violet-200 text-violet-900 text-[11px] font-extrabold py-2 rounded-xl transition text-center shadow-sm"
+                >
+                  Prof / Faculty
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail(`student@${selectedDomain}`);
+                    setPassword('Password123!');
+                  }}
+                  className="bg-sky-100 hover:bg-sky-200 text-sky-900 text-[11px] font-extrabold py-2 rounded-xl transition text-center shadow-sm"
+                >
+                  Student
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail(`admin@${selectedDomain}`);
+                    setPassword('Password123!');
+                  }}
+                  className="bg-amber-100 hover:bg-amber-200 text-amber-900 text-[11px] font-extrabold py-2 rounded-xl transition text-center shadow-sm"
+                >
+                  Org Admin
+                </button>
+              </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-on-primary py-3.5 rounded-xl font-bold text-sm hover:bg-primary/95 transition shadow-md active:scale-98 flex items-center justify-center gap-2"
+              className="w-full bg-primary text-on-primary py-3.5 rounded-xl font-bold text-sm hover:bg-primary/95 transition shadow-md active:scale-98 flex items-center justify-center gap-2 mt-2"
             >
               {loading ? (
                 <span className="w-5 h-5 rounded-full border-2 border-white border-t-transparent animate-spin"></span>
@@ -239,7 +235,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="mt-8 text-center text-sm text-slate-500">
+          <p className="mt-6 text-center text-xs text-slate-500">
             Don't have an account?{' '}
             <span 
               onClick={() => navigate('/register')} 
