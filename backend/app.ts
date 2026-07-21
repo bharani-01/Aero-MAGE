@@ -8,6 +8,9 @@ import cors from 'cors';
 import apiRouter from './api/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { AppError } from './shared/errors/AppError.js';
+import { auditMiddleware } from './middleware/auditMiddleware.js';
+import { inputValidationMiddleware } from './middleware/inputValidation.js';
+import { getMaintenanceMode } from './services/systemState.js';
 
 const app = express();
 
@@ -15,6 +18,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(inputValidationMiddleware);
+app.use(auditMiddleware);
 
 // Mount central API router under /api
 app.use('/api', apiRouter);
@@ -22,6 +27,17 @@ app.use('/api', apiRouter);
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'UP', timestamp: new Date().toISOString() });
+});
+
+// Public system status endpoint (maintenance mode check)
+app.get('/api/system/status', (req, res) => {
+  res.status(200).json({
+    success: true,
+    data: {
+      maintenance_mode: getMaintenanceMode(),
+      timestamp: new Date().toISOString()
+    }
+  });
 });
 
 // Fallback Route Handler (404)
