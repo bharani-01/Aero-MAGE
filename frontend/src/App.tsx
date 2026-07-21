@@ -36,6 +36,12 @@ import QuizHistory from './pages/student/QuizHistory.tsx';
 import ClassroomStream from './pages/ClassroomStream.tsx';
 import QuizLibrary from './pages/QuizLibrary.tsx';
 import UserProfile from './pages/UserProfile.tsx';
+import PublicLibrary from './pages/PublicLibrary.tsx';
+import GamificationHub from './pages/GamificationHub.tsx';
+import ShortUrlResolver from './pages/ShortUrlResolver.tsx';
+
+
+
 
 // Protected Route Wrapper Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -275,9 +281,26 @@ export function App() {
           path="/join" 
           element={<StudentLiveSession />} 
         />
+        <Route 
+          path="/public-library" 
+          element={<PublicLibrary />} 
+        />
+        <Route 
+          path="/marketplace" 
+          element={<PublicLibrary />} 
+        />
+        <Route 
+          path="/gamification" 
+          element={<GamificationHub />} 
+        />
+        <Route 
+          path="/s/:shortCode" 
+          element={<ShortUrlResolver />} 
+        />
       </Routes>
     </Router>
   );
 }
 
 export default App;
+

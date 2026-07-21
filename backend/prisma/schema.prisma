@@ -523,3 +523,195 @@ model QuizAttempt {
 
   @@map("quiz_attempt")
 }
+
+// ==========================================
+// PHASE 2: SHORT LINKS & MARKETPLACE MODELS
+// ==========================================
+
+model ShortLink {
+  internal_id     BigInt    @id @default(autoincrement())
+  id              String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  short_code      String    @unique @db.VarChar(12)
+  target_type     String    @db.VarChar(30) // quiz, marketplace, room, session
+  target_id       String    @db.VarChar(100)
+  title           String?   @db.VarChar(200)
+  clicks          Int       @default(0)
+  created_by      String?   @db.Uuid
+  created_at      DateTime  @default(now()) @db.Timestamptz
+
+  @@map("short_link")
+}
+
+model MarketplaceListing {
+  internal_id     BigInt     @id @default(autoincrement())
+  id              String     @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quiz_id         String     @db.Uuid
+  creator_user_id String     @db.Uuid
+  creator_name    String     @default("Creator") @db.VarChar(100)
+  status          String     @default("published") @db.VarChar(20) // published, hidden, removed
+  title           String     @db.VarChar(200)
+  description     String?    @db.VarChar(2000)
+  category        String     @default("General") @db.VarChar(100)
+  difficulty      String     @default("medium") @db.VarChar(20)
+  question_count  Int        @default(0)
+  clone_count     Int        @default(0)
+  rating_count    Int        @default(0)
+  rating_sum      Int        @default(0)
+  average_rating  Float      @default(0.0)
+  favorite_count  Int        @default(0)
+  view_count      Int        @default(0)
+  is_featured     Boolean    @default(false)
+  short_code      String?    @db.VarChar(12)
+  published_at    DateTime   @default(now()) @db.Timestamptz
+  created_at      DateTime   @default(now()) @db.Timestamptz
+  updated_at      DateTime   @default(now()) @db.Timestamptz
+
+  ratings         MarketplaceRating[]
+  favorites       MarketplaceFavorite[]
+  bookmarks       MarketplaceBookmark[]
+  reports         MarketplaceReport[]
+
+  @@map("marketplace_listing")
+}
+
+model MarketplaceRating {
+  internal_id     BigInt             @id @default(autoincrement())
+  id              String             @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listing_id      String             @db.Uuid
+  user_id         String             @db.Uuid
+  rating          Int
+  created_at      DateTime           @default(now()) @db.Timestamptz
+
+  listing         MarketplaceListing @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+
+  @@unique([listing_id, user_id])
+  @@map("marketplace_rating")
+}
+
+model MarketplaceFavorite {
+  internal_id     BigInt             @id @default(autoincrement())
+  id              String             @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listing_id      String             @db.Uuid
+  user_id         String             @db.Uuid
+  created_at      DateTime           @default(now()) @db.Timestamptz
+
+  listing         MarketplaceListing @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+
+  @@unique([listing_id, user_id])
+  @@map("marketplace_favorite")
+}
+
+model MarketplaceBookmark {
+  internal_id     BigInt             @id @default(autoincrement())
+  id              String             @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listing_id      String             @db.Uuid
+  user_id         String             @db.Uuid
+  created_at      DateTime           @default(now()) @db.Timestamptz
+
+  listing         MarketplaceListing @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+
+  @@unique([listing_id, user_id])
+  @@map("marketplace_bookmark")
+}
+
+model MarketplaceReport {
+  internal_id     BigInt             @id @default(autoincrement())
+  id              String             @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listing_id      String             @db.Uuid
+  reporter_id     String             @db.Uuid
+  reason          String             @db.VarChar(50)
+  description     String?            @db.VarChar(500)
+  status          String             @default("open") @db.VarChar(30)
+  created_at      DateTime           @default(now()) @db.Timestamptz
+
+  listing         MarketplaceListing @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+
+  @@unique([listing_id, reporter_id])
+  @@map("marketplace_report")
+}
+
+// ==========================================
+// PHASE 3: EXTENDED GAMIFICATION MODELS
+// ==========================================
+
+model Badge {
+  internal_id     BigInt      @id @default(autoincrement())
+  id              String      @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String      @unique @db.VarChar(100)
+  description     String      @db.VarChar(500)
+  icon_name       String      @default("workspace_premium") @db.VarChar(100)
+  category        String      @db.VarChar(30) // creation, participation, social, mastery
+  rarity          String      @default("common") @db.VarChar(20) // common, rare, epic, legendary
+  criteria_type   String      @db.VarChar(50) // quizzes_played, quizzes_created, xp_total, streak_days
+  criteria_value  Int
+  xp_reward       Int         @default(100)
+  is_active       Boolean     @default(true)
+  created_at      DateTime    @default(now()) @db.Timestamptz
+
+  user_badges     UserBadge[]
+
+  @@map("badge")
+}
+
+model UserBadge {
+  internal_id     BigInt    @id @default(autoincrement())
+  id              String    @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @db.Uuid
+  badge_id        String    @db.Uuid
+  is_pinned       Boolean   @default(false)
+  earned_at       DateTime  @default(now()) @db.Timestamptz
+
+  badge           Badge     @relation(fields: [badge_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, badge_id])
+  @@map("user_badge")
+}
+
+model Achievement {
+  internal_id       BigInt            @id @default(autoincrement())
+  id                String            @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String            @unique @db.VarChar(100)
+  description       String            @db.VarChar(500)
+  icon_name         String            @default("emoji_events") @db.VarChar(100)
+  category          String            @db.VarChar(30)
+  max_tier          Int               @default(3)
+  tiers_json        String            @db.VarChar(2000) // JSON Array of [{tier: 1, target: 5, reward_xp: 100}]
+  is_active         Boolean           @default(true)
+  created_at        DateTime          @default(now()) @db.Timestamptz
+
+  user_achievements UserAchievement[]
+
+  @@map("achievement")
+}
+
+model UserAchievement {
+  internal_id      BigInt      @id @default(autoincrement())
+  id               String      @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String      @db.Uuid
+  achievement_id   String      @db.Uuid
+  current_tier     Int         @default(1)
+  current_progress Int         @default(0)
+  completed_at     DateTime?   @db.Timestamptz
+  updated_at       DateTime    @default(now()) @db.Timestamptz
+
+  achievement      Achievement @relation(fields: [achievement_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, achievement_id])
+  @@map("user_achievement")
+}
+
+model GlobalLeaderboard {
+  internal_id     BigInt    @id @default(autoincrement())
+  user_id         String    @unique @db.Uuid
+  display_name    String    @db.VarChar(100)
+  avatar_url      String?   @db.VarChar(500)
+  role_name       String    @default("Student") @db.VarChar(50)
+  total_xp        BigInt    @default(0)
+  current_level   Int       @default(1)
+  quizzes_played  Int       @default(0)
+  rank            Int?
+  updated_at      DateTime  @default(now()) @db.Timestamptz
+
+  @@map("global_leaderboard")
+}
+

@@ -160,99 +160,66 @@ export default function StudentDashboard() {
     <DashboardLayout role="student">
       <div className="flex flex-col gap-8">
         
-        {/* Banner Section */}
-        <section className="relative w-full rounded-3xl overflow-hidden bg-primary-container p-6 md:p-10 flex flex-col md:flex-row items-center justify-between text-on-primary-container shadow-md">
-          <div className="max-w-xl text-center md:text-left z-10">
-            <span className="bg-white/20 text-white text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
-              Welcome Back
-            </span>
-            <h2 className="text-headline-md md:text-[32px] md:leading-tight font-black text-white mt-2 mb-2">
-              Welcome back, {user?.displayName || user?.display_name || 'Student'}! 👋
+        {/* Minimal Hero Header */}
+        <section className="w-full rounded-3xl bg-white p-6 sm:p-8 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+          {/* Left Text Block */}
+          <div className="max-w-xl text-center md:text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-extrabold uppercase tracking-wider mb-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <span>Student Learning Command</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl lg:text-[40px] font-black text-slate-900 tracking-tight leading-[1.15]">
+              <span className="block text-slate-500 font-extrabold text-xl sm:text-2xl tracking-normal mb-1">Welcome back,</span>
+              <span className="text-primary block">{(user?.displayName || user?.display_name || 'Student').replace(/\s*\([^)]*\)/g, '')}! 👋</span>
             </h2>
-            <p className="text-xs text-white/90 font-medium">
-              Ready to challenge your knowledge, join classroom streams, or explore public quizzes today?
+            <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed mt-1.5">
+              Ready to challenge your knowledge, join live classroom streams, or explore practice quizzes today?
             </p>
           </div>
 
-          <div className="flex -space-x-3 mt-6 md:mt-0 z-10">
-            <img className="w-12 h-12 rounded-full border-2 border-white shadow-md object-cover" alt="Student 1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1Znv3gOtLaV-eXDKmgKb0cJl_CbpHG3GHiOgrqi9maY-_K16xxext3uak9B0qcsyWnRIdIPIQuDdhh8cmBXYMBSL2OPW5CzwYu8vCuHPO7L1meT_PBnT0uDv2XA95vtYY8GdIHLqb8wdsaHmAyvUYMlEsLUl699gfvBKC9020o1pv4zav1Nr-SPhBmAY17SPLV2urv7CI2MfQhdKip_UwUGYLjWrO8cTqSB0zowmDERyaf1o28LLbbP4HQ4EIhJsk2YruoyhIML0" />
-            <img className="w-12 h-12 rounded-full border-2 border-white shadow-md object-cover z-10 -translate-y-1" alt="Student 2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAuQ1LTtKpdO_cMF8l0-JLc1lgYvFGqwX5vWoiypWSxn41aRr1iaKmAckVQGGoKqdJ9O77HpDCHNLZRO2oQnAkG4B-Dy88poO6zPvgVikItwSkXivTHCMEjzGk0KcJAdWFKp-vztvmeygACwpNaMDyY4edhAes_sk93teR_QNg5HbaSkCWEsm12OzUVZx7jvDXWDMu6V3CPnoDlhMyXegevqAJJ-Th2ArVj2GxyspEyaZyrQkBIdlp_UceiQUH-_AyXnb_56c2Rq90" />
-            <img className="w-12 h-12 rounded-full border-2 border-white shadow-md object-cover" alt="Student 3" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnBA5ZD2b2_pPU8Zp54zpJwqfML07rwyacbMdb62Ud8bEv045L5E7ZZCWUkLIBPfUkHGQ6O_WhqHNIR3fhL3C7HxHBdWu8M3klxAMj4hhq1dkGuixQ2Z2opn4LnwcI34i3giJ-e2FPskYuMJy9rKbjhp5M-RynEGpz1os0gFxIBEIFl_CUYvNwdbD1Hk58vAAyggdCGAi3zU7tq2RjWY8ynIU5auE-YcxEXdFs3XQkEV9YbXdyE9H566Mw77ExHlHufuG_kMjtDlU" />
-            <div className="w-12 h-12 rounded-full border-2 border-white bg-secondary-container text-on-secondary-container font-extrabold text-xs flex items-center justify-center shadow-md">
-              +12
+          {/* Right Active Learners Stack */}
+          <div className="flex items-center gap-3 shrink-0 bg-slate-50 border border-slate-100 px-4 py-3 rounded-2xl">
+            <div className="flex -space-x-2.5">
+              <img className="w-8 h-8 rounded-full border-2 border-white object-cover" alt="Student 1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1Znv3gOtLaV-eXDKmgKb0cJl_CbpHG3GHiOgrqi9maY-_K16xxext3uak9B0qcsyWnRIdIPIQuDdhh8cmBXYMBSL2OPW5CzwYu8vCuHPO7L1meT_PBnT0uDv2XA95vtYY8GdIHLqb8wdsaHmAyvUYMlEsLUl699gfvBKC9020o1pv4zav1Nr-SPhBmAY17SPLV2urv7CI2MfQhdKip_UwUGYLjWrO8cTqSB0zowmDERyaf1o28LLbbP4HQ4EIhJsk2YruoyhIML0" />
+              <img className="w-8 h-8 rounded-full border-2 border-white object-cover" alt="Student 2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAuQ1LTtKpdO_cMF8l0-JLc1lgYvFGqwX5vWoiypWSxn41aRr1iaKmAckVQGGoKqdJ9O77HpDCHNLZRO2oQnAkG4B-Dy88poO6zPvgVikItwSkXivTHCMEjzGk0KcJAdWFKp-vztvmeygACwpNaMDyY4edhAes_sk93teR_QNg5HbaSkCWEsm12OzUVZx7jvDXWDMu6V3CPnoDlhMyXegevqAJJ-Th2ArVj2GxyspEyaZyrQkBIdlp_UceiQUH-_AyXnb_56c2Rq90" />
+              <img className="w-8 h-8 rounded-full border-2 border-white object-cover" alt="Student 3" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnBA5ZD2b2_pPU8Zp54zpJwqfML07rwyacbMdb62Ud8bEv045L5E7ZZCWUkLIBPfUkHGQ6O_WhqHNIR3fhL3C7HxHBdWu8M3klxAMj4hhq1dkGuixQ2Z2opn4LnwcI34i3giJ-e2FPskYuMJy9rKbjhp5M-RynEGpz1os0gFxIBEIFl_CUYvNwdbD1Hk58vAAyggdCGAi3zU7tq2RjWY8ynIU5auE-YcxEXdFs3XQkEV9YbXdyE9H566Mw77ExHlHufuG_kMjtDlU" />
+            </div>
+            <div className="text-left">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 block">Live Active</span>
+              <span className="text-xs font-extrabold text-slate-800">2,400+ MAGE Learners</span>
             </div>
           </div>
         </section>
 
-        {/* Join Classroom via Access Code Section */}
-        <section className="bg-white border border-outline-variant rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col gap-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <span className="bg-primary/10 text-primary text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
-                Classroom Access
-              </span>
-              <h3 className="text-headline-sm font-extrabold text-on-surface mt-1">Join Your Classroom Stream</h3>
-              <p className="text-xs text-on-surface-variant mt-0.5">Enter the 6-digit access code provided by your instructor to open your classroom.</p>
-            </div>
+        {/* MY ENROLLED CLASSROOMS SECTION */}
+        <section className="bg-white rounded-3xl p-5 sm:p-8 shadow-sm flex flex-col gap-4">
+          <div className="flex justify-between items-center mb-1">
+            <h4 className="text-body-lg font-extrabold text-on-surface flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">school</span>
+              My Enrolled Classrooms
+            </h4>
 
-            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-              <input
-                type="text"
-                maxLength={6}
-                placeholder="6-Digit Code"
-                value={typedCode}
-                onChange={(e) => setTypedCode(e.target.value.toUpperCase())}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleJoinByCode(typedCode); }}
-                className="bg-slate-50 border border-outline rounded-xl px-4 py-3 text-xs font-mono w-40 uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-primary font-bold"
-              />
-              <button
-                onClick={() => handleJoinByCode(typedCode)}
-                className="bg-primary text-white px-6 py-3 rounded-xl text-xs font-bold hover:bg-primary/90 transition shadow flex items-center gap-1 active:scale-95"
-              >
-                <span className="material-symbols-outlined text-sm">login</span>
-                Join Classroom
-              </button>
-
-              <button
-                onClick={() => setShowQrModal(true)}
-                className="border border-outline text-slate-700 px-4 py-3 rounded-xl text-xs font-bold hover:bg-slate-50 transition flex items-center gap-1"
-                title="Scan Classroom QR Code"
-              >
-                <span className="material-symbols-outlined text-sm">qr_code_scanner</span>
-                Scan QR
-              </button>
-            </div>
+            <button
+              onClick={() => navigate('/student/rooms')}
+              className="text-primary hover:text-primary/80 font-bold text-xs flex items-center gap-1 hover:underline"
+            >
+              <span>See All Classrooms</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
           </div>
-
-          {/* MY ENROLLED CLASSROOMS PERMANENT LIST (Sleek Vertical Scrollable List) */}
-          <div className="border-t border-outline-variant/60 pt-6">
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="text-body-lg font-extrabold text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">school</span>
-                My Enrolled Classrooms ({joinedRooms.length})
-              </h4>
-
-              <button
-                onClick={() => navigate('/student/rooms')}
-                className="text-primary hover:text-primary/80 font-bold text-xs flex items-center gap-1 hover:underline"
-              >
-                <span>See All Classrooms</span>
-                <span className="material-symbols-outlined text-sm">arrow_forward</span>
-              </button>
-            </div>
 
             {joinedRoomsLoading ? (
               <div className="p-6 text-center text-xs text-on-surface-variant animate-pulse font-bold">
                 Loading joined classrooms…
               </div>
             ) : joinedRooms.length === 0 ? (
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-center text-xs text-on-surface-variant">
+              <div className="bg-slate-50 rounded-2xl p-6 text-center text-xs text-on-surface-variant">
                 You haven't joined any classrooms yet. Enter a code above to get started!
               </div>
             ) : (
               <div className="max-h-[360px] overflow-y-auto pr-1.5 flex flex-col gap-3.5">
                 {joinedRooms.slice(0, 8).map((room) => (
-                  <div key={room.id} className="bg-slate-50 border border-slate-200 hover:border-primary/40 rounded-2xl p-4 shadow-sm hover:shadow-md transition flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 group">
+                  <div key={room.id} className="bg-slate-50 hover:bg-slate-100/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 group">
                     <div className="flex items-center gap-3.5">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold flex-shrink-0 group-hover:bg-primary group-hover:text-white transition">
                         <span className="material-symbols-outlined text-xl">school</span>
@@ -283,66 +250,71 @@ export default function StudentDashboard() {
                 ))}
               </div>
             )}
-          </div>
         </section>
 
-        {/* Discovery Quizzes Grid */}
-        <section className="flex flex-col gap-4">
+        {/* QUIZZES LIBRARY SECTION */}
+        <section className="bg-white rounded-3xl p-5 sm:p-8 shadow-sm flex flex-col gap-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-headline-sm font-extrabold text-on-surface">Available Practice Quizzes</h3>
+            <h4 className="text-body-lg font-extrabold text-on-surface flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">quiz</span>
+              Quizzes Library
+            </h4>
+
             <button
               onClick={() => navigate('/student/library')}
-              className="text-primary font-bold text-xs hover:underline flex items-center gap-1"
+              className="text-primary hover:text-primary/80 font-bold text-xs flex items-center gap-1 hover:underline"
             >
-              Explore Full Library <span className="material-symbols-outlined text-xs">arrow_forward</span>
+              <span>See All Quizzes</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
           </div>
 
           {quizzesLoading ? (
-            <div className="p-8 text-center text-on-surface-variant font-bold text-xs animate-pulse">
-              Scanning quiz library…
+            <div className="p-6 text-center text-xs text-on-surface-variant animate-pulse font-bold">
+              Loading practice quizzes…
+            </div>
+          ) : filteredQuizzes.length === 0 ? (
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-center text-xs text-on-surface-variant">
+              No practice quizzes found. Explore the full library to get started!
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredQuizzes.map((quiz) => (
-                <div key={quiz.id} className="bg-white border border-outline-variant rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition flex flex-col justify-between">
-                  <div className="h-36 w-full relative bg-slate-100">
+            <div className="max-h-[360px] overflow-y-auto pr-1.5 flex flex-col gap-3.5">
+              {filteredQuizzes.slice(0, 10).map((quiz) => (
+                <div key={quiz.id} className="bg-slate-50 border border-slate-200 hover:border-primary/40 rounded-2xl p-4 shadow-sm hover:shadow-md transition flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 group">
+                  <div className="flex items-center gap-3.5 min-w-0">
                     <img
                       src={quiz.cover_image_url || 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=800&auto=format&fit=crop'}
                       alt={quiz.title}
-                      className="w-full h-full object-cover"
+                      className="w-11 h-11 rounded-xl object-cover flex-shrink-0 border border-slate-200"
                     />
-                    <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase">
-                      {quiz.difficulty}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="bg-primary/10 text-primary font-mono text-[9px] font-extrabold px-2 py-0.5 rounded uppercase">
+                          {quiz.difficulty || 'Normal'}
+                        </span>
+                      </div>
+                      <h5 className="text-body-md font-bold text-on-surface group-hover:text-primary transition mt-0.5 truncate">{quiz.title}</h5>
+                      <p className="text-xs text-slate-500 truncate mt-0.5 max-w-md">
+                        {quiz.description?.replace(/^\[mode:\w+\]\s*/, '') || 'Practice quiz for self-paced learning.'}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="p-5 flex-grow flex flex-col justify-between gap-4">
-                    <div>
-                      <h4 className="text-body-lg font-bold text-on-surface line-clamp-1">{quiz.title}</h4>
-                      <p className="text-xs text-on-surface-variant line-clamp-2 mt-1">
-                        {quiz.description?.replace(/^\[mode:\w+\]\s*/, '') || 'No description available.'}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-3 border-t border-outline-variant/60">
-                      <button
-                        onClick={() => setSelectedShareQuiz(quiz)}
-                        className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-primary transition flex items-center gap-1 text-xs font-bold"
-                        title="Share Quiz"
-                      >
-                        <span className="material-symbols-outlined text-sm">share</span>
-                        <span>Share</span>
-                      </button>
-
-                      <button
-                        onClick={() => handleStartQuiz(quiz.id)}
-                        className="bg-primary text-white hover:bg-primary/90 font-bold px-4 py-2 rounded-xl text-xs shadow flex items-center gap-1 active:scale-95"
-                      >
-                        <span className="material-symbols-outlined text-xs">play_arrow</span>
-                        Play Solo
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+                    <button
+                      onClick={() => setSelectedShareQuiz(quiz)}
+                      className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-primary transition flex items-center gap-1 text-xs font-bold"
+                      title="Share Quiz"
+                    >
+                      <span className="material-symbols-outlined text-sm">share</span>
+                    </button>
+                    <button
+                      onClick={() => handleStartQuiz(quiz.id)}
+                      className="bg-primary text-white font-bold px-4 py-2 rounded-xl text-xs hover:bg-primary/90 transition shadow flex items-center gap-1 active:scale-95 whitespace-nowrap"
+                    >
+                      <span className="material-symbols-outlined text-xs">play_arrow</span>
+                      <span>Play Solo</span>
+                    </button>
                   </div>
                 </div>
               ))}

@@ -118,73 +118,72 @@ export default function StudentLibrary() {
     <DashboardLayout role="student">
       <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-16">
 
-        {/* Hero Banner Header */}
-        <div className="bg-primary text-on-primary rounded-3xl p-8 sm:p-10 shadow-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 relative overflow-hidden">
-          <div className="z-10 max-w-xl">
-            <span className="bg-white/20 text-white text-[10px] font-extrabold px-3.5 py-1 rounded-full uppercase tracking-wider">
-              Student Quiz Library
-            </span>
-            <h1 className="text-headline-md sm:text-[32px] font-black text-white leading-tight mt-2">
+        {/* Minimal Hero Header */}
+        <div className="w-full rounded-3xl bg-white p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-extrabold uppercase tracking-wider mb-2">
+              <span className="material-symbols-outlined text-xs">local_library</span>
+              <span>Student Quiz Library</span>
+            </div>
+            <h1 className="text-headline-md sm:text-[32px] font-black text-slate-900 tracking-tight leading-tight">
               Discover &amp; Practice Quizzes
             </h1>
-            <p className="text-xs text-white/90 mt-1">
-              Explore public practice quizzes created by educators, save your bookmarks, test your skills solo, and track your progress. Auto-scroll dynamically loads more quizzes.
+            <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed mt-1 max-w-xl">
+              Explore public practice quizzes created by educators, save your bookmarks, test your skills solo, and track your progress.
             </p>
           </div>
 
-          <div className="z-10 flex items-center gap-3">
-            <button
-              onClick={fetchLibraryQuizzes}
-              className="bg-white/20 hover:bg-white/30 text-white font-extrabold px-5 py-2.5 rounded-full text-xs transition flex items-center gap-1.5 backdrop-blur-md"
-            >
-              <span className="material-symbols-outlined text-sm">refresh</span>
-              Refresh Library
-            </button>
+          <div className="hidden sm:flex items-center gap-2 bg-slate-50 border border-slate-100 px-4 py-2.5 rounded-2xl shrink-0">
+            <span className="material-symbols-outlined text-primary text-lg">auto_awesome</span>
+            <span className="text-xs font-extrabold text-slate-800">500+ Public Quizzes</span>
           </div>
         </div>
 
         {/* Search & Difficulty Filter Card */}
-        <div className="bg-white border border-outline-variant rounded-2xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-3.5 sm:gap-4">
           {/* Search Box */}
-          <div className="relative flex-grow max-w-md">
+          <div className="relative w-full xl:max-w-md">
             <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-base">search</span>
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search quizzes by title or subject…"
-              className="w-full border border-outline rounded-xl pl-10 pr-4 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50"
+              className="w-full border border-outline rounded-xl pl-10 pr-4 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 focus:bg-white"
             />
           </div>
 
-          {/* Difficulty Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
-            {(['all', 'easy', 'medium', 'hard', 'expert'] as const).map(diff => (
-              <button
-                key={diff}
-                onClick={() => setDifficultyFilter(diff)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition capitalize ${
-                  difficultyFilter === diff
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {diff}
-              </button>
-            ))}
-          </div>
+          {/* Filters Row (Difficulty Chips + Scope Dropdown) */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full xl:w-auto">
+            {/* Difficulty Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 no-scrollbar shrink-0">
+              {(['all', 'easy', 'medium', 'hard', 'expert'] as const).map(diff => (
+                <button
+                  key={diff}
+                  onClick={() => setDifficultyFilter(diff)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition capitalize shrink-0 ${
+                    difficultyFilter === diff
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {diff}
+                </button>
+              ))}
+            </div>
 
-          {/* Scope Dropdown */}
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Scope:</span>
-            <select
-              value={scopeFilter}
-              onChange={e => setScopeFilter(e.target.value as any)}
-              className="border border-outline rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none"
-            >
-              <option value="all">All Quizzes</option>
-              <option value="bookmarked">Saved / Bookmarked 🔖</option>
-            </select>
+            {/* Scope Dropdown */}
+            <div className="flex items-center gap-2 shrink-0 justify-between sm:justify-start">
+              <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider shrink-0">Scope:</span>
+              <select
+                value={scopeFilter}
+                onChange={e => setScopeFilter(e.target.value as any)}
+                className="border border-outline rounded-xl px-3 py-2 text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-primary flex-1 sm:flex-none"
+              >
+                <option value="all">All Quizzes</option>
+                <option value="bookmarked">Saved / Bookmarked 🔖</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -198,7 +197,7 @@ export default function StudentLibrary() {
         {/* Quizzes Grid Header */}
         <div className="flex justify-between items-center">
           <h3 className="text-headline-sm font-extrabold text-on-surface">
-            Available Practice Quizzes ({filteredQuizzes.length})
+            Quizzes Library
           </h3>
           <span className="text-xs text-on-surface-variant font-semibold">
             Showing <strong className="text-primary">{displayedQuizzes.length}</strong> of {filteredQuizzes.length} quizzes

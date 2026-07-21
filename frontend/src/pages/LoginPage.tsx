@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, Lock, Mail, ArrowRight, AlertTriangle } from 'lucide-react';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectPath = searchParams.get('redirect');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -55,8 +58,12 @@ export default function LoginPage() {
       localStorage.setItem('refreshToken', result.data.refreshToken);
       localStorage.setItem('user', JSON.stringify(result.data.user));
 
-      // Redirect to dashboard
-      navigate('/dashboard');
+      // Redirect to target quiz or default dashboard
+      if (redirectPath) {
+        navigate(redirectPath);
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'An unexpected error occurred.');
       triggerShake();

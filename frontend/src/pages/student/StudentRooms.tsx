@@ -134,31 +134,32 @@ export default function StudentRooms() {
     <DashboardLayout role="student">
       <div className="flex flex-col gap-6 max-w-6xl mx-auto pb-16">
         
-        {/* Hero Banner Header */}
-        <div className="bg-gradient-to-r from-primary to-primary-container text-white p-8 md:p-10 rounded-3xl shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        {/* Minimal Hero Header */}
+        <div className="w-full rounded-3xl bg-white p-6 sm:p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
-            <span className="bg-white/20 text-white font-extrabold text-[10px] px-3.5 py-1 rounded-full uppercase tracking-wider">
-              Student Classrooms Explorer
-            </span>
-            <h1 className="text-headline-lg md:text-[32px] font-black leading-tight mt-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-extrabold uppercase tracking-wider mb-2">
+              <span className="material-symbols-outlined text-xs">school</span>
+              <span>Student Classrooms Explorer</span>
+            </div>
+            <h1 className="text-headline-md md:text-[32px] font-black text-slate-900 tracking-tight leading-tight">
               Classrooms &amp; Learning Hub
             </h1>
-            <p className="text-xs text-white/90 mt-1 max-w-xl">
+            <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed mt-1 max-w-xl">
               Search enrolled classrooms or discover new courses across your institution. Auto-scroll dynamically loads more classrooms.
             </p>
           </div>
 
           <button
             onClick={() => setShowJoinModal(true)}
-            className="bg-white text-primary font-black px-6 py-3 rounded-full text-xs hover:shadow-xl transition-all active:scale-95 flex items-center gap-2 shadow whitespace-nowrap"
+            className="bg-primary text-white font-extrabold px-5 py-2.5 rounded-xl text-xs hover:bg-primary/90 transition shadow flex items-center gap-2 active:scale-95 whitespace-nowrap shrink-0"
           >
             <span className="material-symbols-outlined text-base">add_circle</span>
-            Join via Code
+            <span>Join via Code</span>
           </button>
         </div>
 
         {/* Scope Tabs & Backend Search Bar */}
-        <div className="bg-white border border-outline-variant rounded-2xl p-4 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="bg-white rounded-2xl p-4 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
           
           {/* Scope Tabs (Enrolled vs Explore All) */}
           <div className="flex bg-slate-100 p-1 rounded-xl w-full md:w-auto">

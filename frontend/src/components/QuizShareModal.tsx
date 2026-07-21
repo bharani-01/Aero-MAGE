@@ -13,24 +13,65 @@ interface QuizShareModalProps {
 }
 
 export default function QuizShareModal({ quiz, onClose }: QuizShareModalProps) {
-  if (!quiz) return null;
-
   const [facultyRooms, setFacultyRooms] = useState<any[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState('');
-  const [customMessage, setCustomMessage] = useState(`Check out this quiz: ${quiz.title}`);
+  const [customMessage, setCustomMessage] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState('');
   const [publishError, setPublishError] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
+  const [shortUrl, setShortUrl] = useState<string>('');
+  const [marketplacePublishing, setMarketplacePublishing] = useState(false);
+  const [marketplaceSuccess, setMarketplaceSuccess] = useState('');
 
-  const quizUrl = `${window.location.origin}/student/quiz/${quiz.id}`;
-  const questionCount = quiz.question_count ?? quiz.questions?.length ?? 0;
+  const quizId = quiz?.id;
+  const quizTitle = quiz?.title;
+  const fullQuizUrl = quizId ? `${window.location.origin}/student/quiz/${quizId}` : '';
+  const displayUrl = shortUrl || fullQuizUrl;
+  const questionCount = quiz?.question_count ?? quiz?.questions?.length ?? 0;
 
   useEffect(() => {
+    if (!quizId) return;
+    setCustomMessage(`Check out this quiz: ${quizTitle}`);
     fetchFacultyRooms();
-  }, []);
+    fetchOrCreateShortUrl();
+  }, [quizId, quizTitle]);
+
+  const fetchOrCreateShortUrl = async () => {
+    if (!quizId) return;
+    try {
+      const res = await fetch('/api/shortlink/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetType: 'quiz',
+          targetId: quizId,
+          title: quizTitle
+        })
+      });
+      const json = await res.json();
+      if (json.success && json.data?.shortCode) {
+        setShortUrl(`${window.location.origin}/s/${json.data.shortCode}`);
+      }
+    } catch {}
+  };
+
+  if (!quiz) return null;
+
+  let isFaculty = false;
+  try {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      const u = JSON.parse(userStr);
+      const r = (u.role || u.role_name || u.roles?.[0] || '').toLowerCase();
+      if (r.includes('faculty') || r.includes('teacher') || r.includes('professor') || r.includes('super_admin')) {
+        isFaculty = true;
+      }
+    }
+  } catch {}
 
   const fetchFacultyRooms = async () => {
+    if (!isFaculty) return;
     const token = localStorage.getItem('accessToken');
     if (!token) return;
     try {
@@ -87,26 +128,61 @@ export default function QuizShareModal({ quiz, onClose }: QuizShareModalProps) {
     }
   };
 
+  const handlePublishToMarketplace = async () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      alert('Please log in to publish quizzes to the public library.');
+      return;
+    }
+
+    setMarketplacePublishing(true);
+    setMarketplaceSuccess('');
+    try {
+      const res = await fetch('/api/marketplace/publish', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          quizId: quiz.id,
+          title: quiz.title,
+          difficulty: quiz.difficulty
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        setMarketplaceSuccess('Quiz successfully published to the Public Library!');
+      } else {
+        alert(json.error?.message || 'Failed to publish to public library.');
+      }
+    } catch {
+      alert('Error publishing to public library.');
+    } finally {
+      setMarketplacePublishing(false);
+    }
+  };
+
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(quizUrl);
+    navigator.clipboard.writeText(displayUrl);
     setCopySuccess(true);
     setTimeout(() => setCopySuccess(false), 2500);
   };
 
   const handleWhatsAppShare = () => {
-    const text = encodeURIComponent(`Take this quiz: "${quiz.title}"\n${quizUrl}`);
+    const text = encodeURIComponent(`Take this quiz: "${quiz.title}"\n${displayUrl}`);
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
   const handleTwitterShare = () => {
     const text = encodeURIComponent(`Take this interactive quiz: "${quiz.title}"`);
-    const url = encodeURIComponent(quizUrl);
+    const url = encodeURIComponent(displayUrl);
     window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
   };
 
   const handleEmailShare = () => {
     const subject = encodeURIComponent(`Quiz Invitation: ${quiz.title}`);
-    const body = encodeURIComponent(`Hi!\n\nYou're invited to take this interactive quiz: "${quiz.title}"\n\nAccess Quiz: ${quizUrl}`);
+    const body = encodeURIComponent(`Hi!\n\nYou're invited to take this interactive quiz: "${quiz.title}"\n\nAccess Quiz: ${displayUrl}`);
     window.open(`mailto:?subject=${subject}&body=${body}`, '_self');
   };
 
@@ -118,7 +194,7 @@ export default function QuizShareModal({ quiz, onClose }: QuizShareModalProps) {
         <div className="flex justify-between items-center border-b border-outline-variant pb-4">
           <h3 className="text-headline-sm font-bold text-on-surface flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">share</span>
-            Share Quiz
+            Share Quiz &amp; Tiny URL
           </h3>
           <button
             onClick={onClose}
@@ -137,7 +213,7 @@ export default function QuizShareModal({ quiz, onClose }: QuizShareModalProps) {
               <span className="material-symbols-outlined text-2xl">quiz</span>
             </div>
           )}
-          <div className="overflow-hidden">
+          <div className="overflow-hidden flex-grow">
             <span className="bg-tertiary-container text-on-tertiary-container text-[9px] font-bold px-2 py-0.5 rounded uppercase">
               {quiz.difficulty}
             </span>
@@ -146,8 +222,8 @@ export default function QuizShareModal({ quiz, onClose }: QuizShareModalProps) {
           </div>
         </div>
 
-        {/* SECTION 1: SHARE TO CLASSROOM STREAM */}
-        {facultyRooms.length > 0 && (
+        {/* SECTION 1: SHARE TO CLASSROOM STREAM (FACULTY ONLY) */}
+        {isFaculty && facultyRooms.length > 0 && (
           <form onSubmit={handleShareToStream} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col gap-4">
             <h4 className="text-xs font-extrabold uppercase tracking-wider text-on-surface flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-base">campaign</span>
@@ -202,19 +278,59 @@ export default function QuizShareModal({ quiz, onClose }: QuizShareModalProps) {
           </form>
         )}
 
-        {/* SECTION 2: COPY DIRECT LINK & EXTERNAL SOCIAL SHARES */}
+        {/* SECTION 2: PUBLISH TO PUBLIC LIBRARY (FACULTY ONLY) */}
+        {isFaculty && (
+          <div className="bg-indigo-50/70 border border-indigo-200/80 rounded-2xl p-5 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-indigo-900 flex items-center gap-2">
+                <span className="material-symbols-outlined text-indigo-600 text-base">local_library</span>
+                Public Library
+              </h4>
+              <span className="text-[10px] font-bold bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded-full">Share with World</span>
+            </div>
+
+            {marketplaceSuccess && (
+              <div className="bg-green-100 border border-green-300 text-green-900 rounded-xl p-3 text-xs font-bold">
+                {marketplaceSuccess}
+              </div>
+            )}
+
+            <p className="text-xs text-indigo-800 font-medium">
+              Publish this quiz to the Public Library so educators and students worldwide can clone and attempt it.
+            </p>
+
+            <button
+              onClick={handlePublishToMarketplace}
+              disabled={marketplacePublishing}
+              className="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-xl hover:bg-indigo-700 transition shadow-md text-xs flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-sm">public</span>
+              {marketplacePublishing ? 'Publishing to Public Library…' : 'Publish to Public Library'}
+            </button>
+          </div>
+        )}
+
+        {/* SECTION 3: TINY URL & SOCIAL SHARES */}
         <div className="flex flex-col gap-4 border-t border-outline-variant pt-4">
-          <h4 className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">
-            Direct Link &amp; Social Media
-          </h4>
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-primary text-base">link</span>
+              Tiny Share URL
+            </h4>
+            {shortUrl && (
+              <span className="text-[10px] font-mono font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                Short URL Ready
+              </span>
+            )}
+          </div>
 
           {/* Copy Link Input Bar */}
           <div className="flex items-center gap-2">
             <input
               type="text"
               readOnly
-              value={quizUrl}
-              className="w-full bg-slate-50 border border-outline rounded-xl px-3 py-2.5 text-xs font-mono text-slate-700 select-all"
+              value={displayUrl}
+              className="w-full bg-slate-50 border border-outline rounded-xl px-3 py-2.5 text-xs font-mono text-slate-700 select-all font-bold"
             />
             <button
               onClick={handleCopyLink}
@@ -223,7 +339,7 @@ export default function QuizShareModal({ quiz, onClose }: QuizShareModalProps) {
               }`}
             >
               <span className="material-symbols-outlined text-sm">{copySuccess ? 'check' : 'content_copy'}</span>
-              {copySuccess ? 'Copied!' : 'Copy Link'}
+              {copySuccess ? 'Copied!' : 'Copy Short Link'}
             </button>
           </div>
 
